@@ -4,6 +4,10 @@
 
 `idea → PRD → vertical slices → branch → plan → build → verify → independent review → PR → merge`, on a loop, until the project is finished.
 
+![demo](docs/demo.gif)
+
+<sub>Real run, nothing staged. Regenerate with `vhs docs/demo.tape`.</sub>
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-black.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-v2.1%2B-black.svg)](https://claude.com/claude-code)
 
@@ -31,59 +35,7 @@ newproject my-app     # git repo, .claude/ harness, verify script, CI — ready
 
 `/ship-it` runs autonomously: branch → spec → plan → implement → verify → independent review → PR → CI → merge → next slice. It is resumable — kill it, come back tomorrow, run it again, and it picks up from the last verified commit.
 
-## Claude Code already ships most of this
-
-This is the part that made me delete everything else. As of Claude Code v2.1, in the box:
-
-| Ships in the box | So stop rebuilding it |
-|---|---|
-| `/code-review`, `/security-review`, `/simplify` | review, security and cleanup skills |
-| `/run` and `/verify` — build and drive your actual app | "does it really work" skills |
-| Plan mode, `/rewind`, `/diff`, `/autofix-pr` | plan wrappers, undo, CI babysitters |
-| Auto memory — `MEMORY.md` plus four typed note kinds | a memory subsystem |
-| `.claude/rules/*.md`, scoped by `paths:` globs | a rules engine |
-| Built-in `Explore` and `Plan` subagents, both read-only | a "researcher" agent |
-| `/loop`, `/batch` | an orchestration layer |
-| `context: fork` on any skill | most bespoke subagents |
-
-Custom commands have merged into skills. And a 200-agent marketplace is not capability: every agent's description sits in your context window every session, and Claude Code warns you once they total 15,000 tokens.
-
-<sub>Claude Code's `/verify` builds and drives your running app. This kit's `scripts/verify.sh` is the static gate — lint, types, tests, build. Complementary, not duplicates.</sub>
-
-Everything a starter kit still needs to add fits in thirteen files.
-
-## Why this exists
-
-I read every popular Claude Code framework, agent collection and spec-driven development kit I could find. Then I counted what was actually in them.
-
-| Project | Footprint |
-|---|---|
-| gstack | 1,281 files · 482 skills, one skill 3,054 lines long |
-| alirezarezvani/claude-skills | 388 skills, 727 Python tools |
-| agency-agents | 230+ agents across 17 "divisions" |
-| wshobson/agents | 202 agents, 181 skills, 93 plugins |
-| VoltAgent/awesome-claude-code-subagents | 158+ agents |
-| ECC | 68 agents, 286 skills |
-| oh-my-claudecode | 19 agents plus a TypeScript build system |
-| BMAD-METHOD | Node + Python + uv toolchain to install |
-| GitHub spec-kit | six commands to run before you write a line |
-| **this** | **13 files · 2 commands** |
-
-<sub>Counted September 2026. Numbers move; the pattern does not.</sub>
-
-I got sick of it. None of it made my code better. Most of it was rebuilding things Claude Code already ships, and almost none of it told me when *not* to reach for a subagent — which turns out to be most of the time.
-
-So I deleted everything and wrote down the smallest thing that actually works.
-
 ## The loop
-
-It is primarily a **workflow**, implemented as a **loop**.
-
-- **Workflow** — the overall process from raw idea to finished project.
-- **Loop** — the inner steps repeat for **every feature**.
-- **Graph** — features can run sequentially, in parallel, or in diamond/DAG paths with subagents.
-- **Subagents** — execution nodes inside the workflow, for independent planning, testing and review.
-- **Skill** — a reusable procedure, extracted once the same prompt is used repeatedly.
 
 > **An iterative, feature-level software development workflow, orchestrated as a graph, with a mandatory execution loop and specialized subagents.**
 
@@ -110,6 +62,33 @@ Feature
                 ↓
         Complete Project
 ```
+
+- **Workflow** — the overall process from raw idea to finished project.
+- **Loop** — the inner steps repeat for **every feature**.
+- **Graph** — features can run sequentially, in parallel, or in diamond/DAG paths with subagents.
+- **Subagents** — execution nodes inside the workflow, for independent planning, testing and review.
+- **Skill** — a reusable procedure, extracted once the same prompt is used repeatedly.
+
+## Claude Code already ships most of this
+
+This is the part that made me delete everything else. As of Claude Code v2.1, in the box:
+
+| Ships in the box | So stop rebuilding it |
+|---|---|
+| `/code-review`, `/security-review`, `/simplify` | review, security and cleanup skills |
+| `/run` and `/verify` — build and drive your actual app | "does it really work" skills |
+| Plan mode, `/rewind`, `/diff`, `/autofix-pr` | plan wrappers, undo, CI babysitters |
+| Auto memory — `MEMORY.md` plus four typed note kinds | a memory subsystem |
+| `.claude/rules/*.md`, scoped by `paths:` globs | a rules engine |
+| Built-in `Explore` and `Plan` subagents, both read-only | a "researcher" agent |
+| `/loop`, `/batch` | an orchestration layer |
+| `context: fork` on any skill | most bespoke subagents |
+
+Custom commands have merged into skills. And a 200-agent marketplace is not capability: every agent's description sits in your context window every session, and Claude Code warns you once they total 15,000 tokens.
+
+<sub>Claude Code's `/verify` builds and drives your running app. This kit's `scripts/verify.sh` is the static gate — lint, types, tests, build. Complementary, not duplicates.</sub>
+
+Everything a starter kit still needs to add fits in thirteen files.
 
 ## What is actually in it
 
@@ -145,24 +124,35 @@ Anything that must be true goes in the top layer. **Rules written as prose get n
 
 **3. The implementer never reviews its own work.** On a 7-feature build, a fresh-context reviewer **blocked 5 of 7 pull requests** — catching silent money corruption, authorisation holes, non-transactional migrations, and user journeys that were never implemented at all. This is the highest-yield step in agentic coding, and it is one subagent.
 
+## Why this exists
+
+I read every popular Claude Code framework, agent collection and spec-driven development kit I could find. Then I counted what was actually in them.
+
+| Project | Footprint |
+|---|---|
+| gstack | 1,281 files · 482 skills, one skill 3,054 lines long |
+| alirezarezvani/claude-skills | 388 skills, 727 Python tools |
+| agency-agents | 230+ agents across 17 "divisions" |
+| wshobson/agents | 202 agents, 181 skills, 93 plugins |
+| VoltAgent/awesome-claude-code-subagents | 158+ agents |
+| ECC | 68 agents, 286 skills |
+| oh-my-claudecode | 19 agents plus a TypeScript build system |
+| BMAD-METHOD | Node + Python + uv toolchain to install |
+| GitHub spec-kit | six commands to run before you write a line |
+| **this** | **13 files · 2 commands** |
+
+<sub>Counted September 2026. Numbers move; the pattern does not.</sub>
+
+I got sick of it. None of it made my code better. Most of it was rebuilding things Claude Code already ships, and almost none of it told me when *not* to reach for a subagent — which turns out to be most of the time.
+
+So I deleted everything and wrote down the smallest thing that actually works.
+
 ## Two ideas being tested
 
-Marked honestly, because I have not proven them yet.
+`/kickoff` asks **at most five** questions before it writes anything, and cuts the work into **vertical slices** on `work/BOARD.md` — every slice crosses the whole stack and ends in something a user can do. Both are labelled **hypotheses** inside the skills, because I have not proven them yet. Reasoning in [RESEARCH.md](RESEARCH.md).
 
-**Five questions before building.** `/kickoff` asks **at most five** questions — only ones where different answers change the product. One round, then it commits. Inspired by Matt Pocock's `grill-me`, but bounded: interrogation skills can run for hours and produce compliance rather than clarity.
-
-**Vertical slices on a board.** `/kickoff` writes `work/BOARD.md`. Every slice crosses the whole stack and ends in something a user can do.
-
-```
-✅  "A visitor can sign up and land on an empty dashboard"   schema + server + UI + tests
-❌  "Set up the database" → "Build the API" → "Build the UI"  nothing demoable, nothing verifiable
-```
-
-Both are **hypotheses**, labelled as such inside the skills. After a few real projects: did the questions catch anything? Did the board earn its overhead? That is how a methodology gets built — tested, not adopted.
-
-## Prior art
-
-Good ideas, taken with thanks:
+<details>
+<summary><strong>Prior art</strong> — good ideas, taken with thanks</summary>
 
 - **[humanlayer ACE-FCA](https://github.com/humanlayer/advanced-context-engineering-for-coding-agents)** — research → plan → implement in separate contexts. Review the plan, not the code: *"one bad line of plan is hundreds of bad lines of code."*
 - **[OpenSpec](https://github.com/Fission-AI/OpenSpec)** — one folder per change, plain markdown, no DSL.
@@ -172,6 +162,10 @@ Good ideas, taken with thanks:
 - **[BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD)** — small changes go straight to build.
 - **[addyosmani/agent-skills](https://github.com/addyosmani/agent-skills)** — a sane lifecycle shape.
 
-Full research, measurements and design rationale: **[DESIGN.md](DESIGN.md)**.
+Full survey, measurements and design rationale: **[RESEARCH.md](RESEARCH.md)**.
+
+MIT. If it saves you a day, star it.
+
+</details>
 
 MIT. If it saves you a day, star it.

@@ -7,20 +7,21 @@ set -eu
 
 KIT_HOME="${CLAUDE_KIT_HOME:-$HOME/.claude-kit}"
 BASE="${NEWPROJECT_DIR:-$HOME/Projects}"
-NAME=""; HERE=0
+NAME=""; HERE=0; OPEN="${NEWPROJECT_NO_OPEN:+0}"; OPEN="${OPEN:-1}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --here)  HERE=1; shift ;;
+    --no-open) OPEN=0; shift ;;
     --dir)   BASE="$2"; shift 2 ;;
     -h|--help)
-      echo "usage: newproject <name> [--here] [--dir <path>]"; exit 0 ;;
+      echo "usage: newproject <name> [--here] [--dir <path>] [--no-open]"; exit 0 ;;
     -*) echo "newproject: unknown option $1" >&2; exit 2 ;;
     *)  NAME="$1"; shift ;;
   esac
 done
 
-[ -n "$NAME" ] || { echo "usage: newproject <name> [--here] [--dir <path>]" >&2; exit 2; }
+[ -n "$NAME" ] || { echo "usage: newproject <name> [--here] [--dir <path>] [--no-open]" >&2; exit 2; }
 [ -d "$KIT_HOME/template" ] || {
   echo "newproject: template not found at $KIT_HOME/template" >&2
   echo "  set CLAUDE_KIT_HOME, or re-run the kit's install.sh" >&2
@@ -62,5 +63,6 @@ echo "  2. /kickoff     -> questions, PRD, architecture, verify, board"
 echo "  3. /ship-it     -> builds every slice until the board is empty"
 echo
 
+[ "$OPEN" = 1 ] || exit 0
 command -v claude >/dev/null 2>&1 || { echo "claude not on PATH; open it yourself."; exit 0; }
 exec claude "Read IDEA.md. If it is empty, ask me to describe the project and wait for my answer. Then run /kickoff."
