@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+.env
+.env*.local
+!.env.example
+*.pem
+.DS_Store
+*.log
+.vercel
+.turbo
+test-results/
+playwright-report/

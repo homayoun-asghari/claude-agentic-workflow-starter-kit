@@ -1,0 +1,66 @@
+#!/bin/sh
+# newproject <name> [--here | --dir <path>]
+#
+# Creates a project that is ready to build: git repo, .claude/ harness, verify
+# script, CI, and an empty IDEA.md. Then opens Claude Code.
+set -eu
+
+KIT_HOME="${CLAUDE_KIT_HOME:-$HOME/.claude-kit}"
+BASE="${NEWPROJECT_DIR:-$HOME/Projects}"
+NAME=""; HERE=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --here)  HERE=1; shift ;;
+    --dir)   BASE="$2"; shift 2 ;;
+    -h|--help)
+      echo "usage: newproject <name> [--here] [--dir <path>]"; exit 0 ;;
+    -*) echo "newproject: unknown option $1" >&2; exit 2 ;;
+    *)  NAME="$1"; shift ;;
+  esac
+done
+
+[ -n "$NAME" ] || { echo "usage: newproject <name> [--here] [--dir <path>]" >&2; exit 2; }
+[ -d "$KIT_HOME/template" ] || {
+  echo "newproject: template not found at $KIT_HOME/template" >&2
+  echo "  set CLAUDE_KIT_HOME, or re-run the kit's install.sh" >&2
+  exit 1; }
+
+if [ "$HERE" -eq 1 ]; then DEST="$PWD"; else DEST="$BASE/$NAME"; fi
+
+if [ -e "$DEST" ] && [ "$HERE" -eq 0 ]; then
+  echo "newproject: $DEST already exists" >&2; exit 1
+fi
+
+mkdir -p "$DEST"
+cd "$DEST"
+
+# Copy the template, dotfiles included.
+cp -R "$KIT_HOME/template/." .
+chmod +x scripts/*.sh .claude/hooks/*.sh 2>/dev/null || true
+
+# Seed the project name.
+if [ -f CLAUDE.md ]; then
+  printf '# %s\n\n' "$NAME" > .claude-title.tmp
+  sed '1s|^# Project instructions$|# '"$NAME"'|' CLAUDE.md > CLAUDE.md.tmp \
+    && mv CLAUDE.md.tmp CLAUDE.md
+  rm -f .claude-title.tmp
+fi
+
+# The scaffold commit happens here, in plain shell, before any agent runs -- so
+# the guard hook never has to make an exception for the first commit on main.
+if [ ! -d .git ]; then
+  git init -b main -q
+  git add -A
+  git commit -q -m "chore: initialize project from claude-agentic-workflow-starter-kit"
+fi
+
+echo "created $DEST"
+echo
+echo "  1. paste the idea into IDEA.md"
+echo "  2. /kickoff     -> questions, PRD, architecture, verify, board"
+echo "  3. /ship-it     -> builds every slice until the board is empty"
+echo
+
+command -v claude >/dev/null 2>&1 || { echo "claude not on PATH; open it yourself."; exit 0; }
+exec claude "Read IDEA.md. If it is empty, ask me to describe the project and wait for my answer. Then run /kickoff."

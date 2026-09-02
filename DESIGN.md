@@ -289,15 +289,16 @@ multi-step operation is used repeatedly, convert it into a reusable skill."*
 The same 11-step loop ran seven times. **No skill was ever created.** There is no
 `.claude/` directory. The next project starts by pasting the same wall of text.
 
-**3. The most valuable artifacts are not in the repository.**
-`PROGRESS.md`, `CLAUDE.md`, and `WALKTHROUGH.md` are all untracked — excluded via
-`.git/info/exclude`, which is *machine-local and not even shareable* (unlike
-`.gitignore`, which at least travels with a clone).
+**3. The agent-facing artifacts were kept out of the repo — deliberately.**
+`PROGRESS.md`, `CLAUDE.md` and `WALKTHROUGH.md` are excluded via `.git/info/exclude`.
+This was a **client-confidentiality decision, not an oversight**: the client should not
+see the agent's working notes.
 
-So: the resumability state, the project's own operating instructions, and every
-hard-won environment fact — including the hour-long `.env.local` trap — **exist only
-on this laptop.** A fresh clone, a new machine, or a teammate gets none of it. This
-directly contradicts the prompt's own Persistence section.
+It is the right call for a client deliverable, and it points at a real design
+requirement rather than a defect: the kit must keep durable agent state *inside the
+repository* for the projects where that is wanted, and make excluding it a one-line
+choice for the projects where it is not. On a public or personal project, that state
+should be committed — it is what makes the next session cheap.
 
 **4. `npm run ci` and `.github/workflows/ci.yml` have already diverged.**
 
@@ -339,7 +340,7 @@ workflow lives.**
 | "Done" is defined by | prose the model self-reports against | `./scripts/verify.sh` exit code |
 | main protection | a sentence | PreToolUse hook + branch protection |
 | Evals | mandated, unmeetable, silently skipped | out of scope unless the product is AI |
-| Durable state | `PROGRESS.md`, **untracked** | `work/<slug>/`, **committed** |
+| Durable state | `PROGRESS.md` (excluded for client confidentiality) | `work/<slug>/`, committed by default |
 | Compounding | none — retype next time | skills ship with the repo |
 | Review | ✅ same idea, and it worked | ✅ same idea, plus spec-conformance audit |
 | Ceremony | fixed, all 11 steps for every feature | scaled to change size |
@@ -716,9 +717,9 @@ the rest.
 6. **Config self-test in CI.** `.claude/` rots silently; 20 lines catches it.
 7. **The no-exit-code rule.** Never write a completion criterion that cannot fail
    mechanically.
-8. **Committing the agent-facing artifacts.** `PROGRESS.md`, `CLAUDE.md` and
-   `WALKTHROUGH.md` were all untracked in the field test. The knowledge must travel
-   with the code.
+8. **A deliberate choice about where agent state lives.** Committed by default so it
+   travels with the code; excluded in one line for client work where the notes should
+   stay private.
 
 ---
 
