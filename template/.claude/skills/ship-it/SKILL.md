@@ -1,23 +1,23 @@
 ---
 name: ship-it
-description: Build every remaining slice on the board autonomously - branch, plan, implement, verify, independent review, PR, merge - and repeat until the board is empty. Resumable after any interruption.
-argument-hint: "[slug to start from, or blank for the whole board]"
+description: Build the whole project. For every feature on the board - branch, plan, implement, test, debug, evals, CI, independent review, commit, PR, merge - and keep going until the board is empty and the project works end to end.
+argument-hint: "[optional: a single slug to build]"
 disable-model-invocation: true
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 ---
 
 # Ship it
 
-Work the board top to bottom, one vertical slice at a time, until it is empty.
+**Do not stop until you have delivered the complete, working project described in the
+PRD and the rest of the project documentation.**
 
-Argument: `$ARGUMENTS` — a slug to build only that slice, or blank for the whole board.
+Argument: `$ARGUMENTS` — a single slug to build only that, or blank for the whole board.
 
-**Do not stop after one slice.** Finish the board. Stop only for a condition in
-*Stop conditions* below.
+Work the board in order. Finish a feature completely, merge it, then start the next
+one. Do not pause between features to check in. Keep going.
 
 ---
 
-## Step 0 — Orient (always, even mid-run)
+## Before you start (and after any interruption)
 
 Never resume from memory. Establish the real state:
 
@@ -28,14 +28,16 @@ git log --oneline -10
 cat work/BOARD.md
 ```
 
-- On a `feat/*` branch with uncommitted work → you were interrupted mid-slice.
-  Read `work/<slug>/plan.md`, find the first unticked step, continue from there.
-- On `main` and clean → start the next `todo` slice.
-- A slice marked `doing` with a merged PR → it is actually `done`. Fix the board.
+- Mid-feature on a `feat/*` branch → read `work/<slug>/plan.md`, find the first
+  unticked step, continue from there.
+- On `main` and clean → start the next `todo` on the board.
+- Board says `doing` but the PR is merged → it is `done`. Fix the board and move on.
 
-## Step 1 — Take the next slice
+---
 
-First `todo` in `work/BOARD.md`. Mark it `doing`. Then:
+## The loop, for every feature
+
+### 1. Feature branch — always, first, no exceptions
 
 ```bash
 git checkout main && git pull --ff-only 2>/dev/null || true
@@ -43,172 +45,141 @@ git checkout -b feat/<slug>
 mkdir -p work/<slug>
 ```
 
-Branch name and work folder always share the slug.
+**A feature never gets implemented on `main`.** If you find yourself editing files on
+`main`, branch first and carry the changes over. The branch name always matches the
+`work/<slug>/` folder.
 
-## Step 2 — Spec
-
-Write `work/<slug>/spec.md`:
-
-```markdown
-# <slug>
-
-## What a user can do when this is done
-<one sentence>
-
-## Acceptance criteria
-- [ ] <criterion — specific enough that a test can prove it>
-- [ ] <...>
-
-## Out of scope
-- <...>
-```
-
-Every criterion must be **mechanically checkable**. "Handles errors gracefully" is
-not a criterion. "Submitting an empty email shows a validation message and does not
-create a row" is.
-
-**Never write a criterion that has no possible exit code.** That is how a step gets
-reported as passed without being performed.
-
-## Step 3 — Plan
-
-Research first — use the `Explore` subagent for anything beyond a couple of files, so
-the search trace stays out of this context.
+### 2. Plan
 
 Write `work/<slug>/plan.md`:
 
-```markdown
-# Plan: <slug>
+- The PRD requirements and acceptance criteria this feature covers.
+- Dependencies, edge cases, implementation risks.
+- The testing and evaluation strategy for this feature.
+- Numbered steps, each with the exact files it touches and how it gets verified.
 
-- [ ] 1. <step> — files: <exact paths> — verified by: <command or test name>
-- [ ] 2. ...
-```
+Use the `Explore` subagent for research so the search trace stays out of this context.
 
-Each step is one commit. Each leaves `verify` green. If a step cannot be verified,
-it is not a step — fold it into one that can.
+### 3. Implement
 
-Cover the whole slice: schema, server, UI, and tests. If the plan has no UI step and
-no test step, the slice is horizontal — go back to Step 2.
+Work the steps in order. One commit per step, each leaving the tests green.
 
-## Step 4 — Implement
+### 4. Test
 
-For each step, in order:
+- Unit tests where appropriate.
+- Integration tests where appropriate.
+- End-to-end tests for critical user flows.
+- Regression tests for existing behaviour this change touches.
 
-1. Write the test first where it is natural to.
-2. Implement.
-3. `./scripts/verify.sh --fast`
-4. Tick the step in `plan.md`.
-5. `git commit -m "<type>(<slug>): <step>"`
+### 5. Debug
 
-Never move to the next step on a failing verify. Never batch several steps into one
-commit — `git bisect` is worth more than a tidy log.
+Investigate and fix everything that fails. Re-run the relevant suite after each fix.
+Root cause, not symptom.
 
-## Step 5 — Verify for real
+### 6. Evals
 
-```bash
-./scripts/verify.sh
-```
+Run the evaluations for this feature and confirm it satisfies the intended behaviour
+and the acceptance criteria.
 
-Full run, no `--fast`. Then tick each acceptance criterion in `spec.md`, and paste
-**the command output that proves it** beside it. Not an assertion that it works —
-the output.
+**If this project has no evals, say so in the PR body and move on.** Do not report
+this step as passed when nothing ran. A step that cannot be performed gets reported
+as skipped, never as done.
 
-## Step 6 — Independent review
-
-Dispatch the `spec-auditor` subagent. Give it the slug.
-
-It runs in a fresh context because **you cannot fairly grade your own work.** On a
-real project this step blocks roughly two changes in three on the first pass. Expect
-`BLOCK`. It is the normal outcome, not a failure of the process.
-
-On `BLOCK`:
-
-1. Fix every correctness finding. Do not argue with it.
-2. Re-run `./scripts/verify.sh`.
-3. Commit: `fix(<slug>): address independent review — <what>`
-4. Re-run the auditor.
-
-Three `BLOCK`s on the same slice → stop and ask the user. Something is wrong with the
-spec, not the code.
-
-Optionally also run `/code-review` for general bug-hunting. The auditor checks
-conformance to the spec; `/code-review` checks the code itself.
-
-## Step 7 — Land
+### 7. CI checks
 
 ```bash
 ./scripts/verify.sh
+```
+
+Build, lint, type check, tests, and any project-specific checks. All of them pass
+before you go further.
+
+### 8. Independent review
+
+Dispatch the `spec-auditor` subagent with the slug. **The agent that wrote the code is
+never the only one to judge it.**
+
+Fix every legitimate finding, re-run `./scripts/verify.sh`, commit as
+`fix(<slug>): address independent review`, and re-run the auditor until it passes.
+
+### 9. Commit
+
+Clear, meaningful message. Conventional prefix.
+
+### 10. Pull request — always, no exceptions
+
+```bash
 git push -u origin feat/<slug>
-gh pr create --title "feat(<slug>): <slice>" --body "$(cat <<'BODY'
-<one line: what a user can now do>
-
-## Acceptance criteria
-<the ticked checklist from spec.md>
-
-## Plan
-<link to work/<slug>/plan.md in the diff>
-
-Independent review: PASS
-BODY
-)"
+gh pr create --title "feat(<slug>): <what a user can now do>" --body "<what changed, acceptance criteria, test summary, review result>"
 ```
 
-Wait for CI. `gh run watch` or poll `gh pr checks`.
+**Every feature gets a PR.** No exceptions, no "this one was small".
 
-- CI red → fix on the branch, push, wait again. Never merge red. Never push past the
-  gate onto `main`.
-- CI green → `gh pr merge --squash --delete-branch`
+### 11. Merge
 
-Then clean up:
+Wait for checks, then:
 
 ```bash
+gh pr checks --watch
+gh pr merge --squash --delete-branch
 git checkout main && git pull --ff-only
-rm -rf work/<slug>            # git history is the archive
 ```
 
-- Mark the slice `done` in `work/BOARD.md`.
-- Append one line to `docs/DECISIONS.md` for any decision made along the way.
-- Append anything learned the hard way to `docs/NOTES.md` — environment traps
-  especially, phrased so the next session does not re-learn them.
-- Commit those on a branch too, or fold them into the next slice's first commit.
+If CI is red, fix it on the branch and push again. Never merge red.
 
-## Step 8 — Next
-
-Go to Step 1. Repeat until no `todo` remains.
-
-When the board is empty:
-
-```bash
-./scripts/verify.sh
-```
-
-Then report: slices shipped, what each PR did, review blocks found and fixed, and
-anything left in `docs/NOTES.md` worth acting on.
+Then mark the slice `done` in `work/BOARD.md`, append any decision to
+`docs/DECISIONS.md`, and **go straight to the next feature.**
 
 ---
 
-## Stop conditions
+## Orchestration
 
-Stop and ask the user when any of these hold. Do not push through.
+Use subagents and parallel or DAG execution where they genuinely help:
 
-- The same slice has been `BLOCK`ed three times.
-- The same test has failed five times without the cause changing.
-- A slice needs a credential, an account, or a paid service that is not present.
-- Verify cannot be made to pass for a reason outside the slice.
-- A slice turns out to need a decision that is not in `docs/`, and no conservative
-  default is defensible.
-- The work would require deploying, or touching production data.
+- **Sequential** when tasks depend on each other.
+- **Parallel** when they are independent.
+- **Diamond/DAG** when several agents can analyse, implement, test or review different
+  aspects and the results get combined.
 
-**Report progress honestly at every stop.** Say what is merged, what is half-built,
-and what is untouched. Never describe a step as done when it was skipped — a skipped
-step that gets narrated as complete is the single most expensive failure in this
-workflow.
+Do not use subagents for the sake of it. Optimise for correctness, speed, and
+independent verification. Max 3 at once. Never let a subagent spawn its own subagents.
 
-## Interruptions
+## Reusable skills
 
-Rate limits, token limits, and tool failures are expected. They are not a reason to
-restart.
+If you issue the same prompt or run the same multi-step procedure more than twice,
+write it to `.claude/skills/<name>/SKILL.md` and use it from then on. Prefer project
+tooling and existing skills over repeating instructions.
 
-Before any long stretch of work, make sure the branch holds a meaningful commit. On
-resume, run Step 0 and continue from the last verified state. Previous work is on
-disk and in git — never assume it was lost because the session ended.
+## Persistence
+
+Rate limits, token limits, context limits and tool failures are expected. They are not
+a reason to restart.
+
+- Commit meaningful checkpoints before any long stretch of work.
+- Keep implementation, tests, config and docs in the repository.
+- Keep `work/<slug>/plan.md` current so any session can pick it up.
+- On resume, inspect the repository first and continue from the last verified state.
+- Never assume earlier work was lost because the session or the model changed.
+
+The objective is durable progress toward completion, not a reply in this session.
+
+## Done
+
+Keep looping until:
+
+- Every PRD requirement is implemented.
+- Every acceptance criterion is satisfied.
+- Unit, integration and e2e tests pass.
+- Evals pass, or are documented as absent.
+- `./scripts/verify.sh` exits 0.
+- Independent review findings are resolved.
+- Every feature branch is merged.
+- The project is buildable, testable, and works end to end.
+
+Do not declare it complete because the code is written. Verify the finished system
+against the PRD and the project documentation, then report what shipped.
+
+## When to come back to the user
+
+A missing credential, account, or paid service that cannot be created. Otherwise, work
+it out and keep going.

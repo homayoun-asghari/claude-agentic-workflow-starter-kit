@@ -35,12 +35,6 @@ if [ -f .claude/settings.json ]; then
   fi
 fi
 
-# Hooks are executable.
-while IFS= read -r f; do
-  [ -z "$f" ] && continue
-  [ -x "$f" ] && ok "$f (executable)" || err "$f: not executable — chmod +x"
-done < <(find .claude/hooks -name '*.sh' 2>/dev/null)
-
 # CI must call verify.sh rather than re-listing its steps.
 if [ -f .github/workflows/verify.yml ]; then
   grep -q 'scripts/verify.sh' .github/workflows/verify.yml \

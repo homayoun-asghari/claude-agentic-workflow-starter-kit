@@ -22,7 +22,7 @@ git rev-parse --abbrev-ref HEAD
 git checkout -b chore/kickoff
 ```
 
-Never work on `main`. The guard hook will block a commit there anyway.
+Never work on `main`. Everything lands through a branch and a PR.
 
 ## Step 1 — Read the idea
 
