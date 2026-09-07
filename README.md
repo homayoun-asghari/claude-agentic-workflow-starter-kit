@@ -26,10 +26,19 @@ Then, for every project you start from now on:
 
 ```bash
 newproject my-app     # git repo, .claude/ harness, verify script, CI — ready
-                      # paste your idea into IDEA.md
+                      # claude opens and asks you for the idea
 /kickoff              # ≤5 questions → PRD, architecture, decisions, board of vertical slices
 /ship-it              # builds every slice until the board is empty
 ```
+
+Staying current:
+
+```bash
+newproject --self-update   # pull the latest kit and reinstall
+newproject --update        # inside a project: refresh its skills, agents and settings
+```
+
+`--update` refreshes only the kit's own machinery. Your `CLAUDE.md`, `docs/`, `work/`, `IDEA.md`, `scripts/verify.sh` and CI workflow are never touched.
 
 **Two commands.** That is the whole interface.
 

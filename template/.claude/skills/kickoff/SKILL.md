@@ -24,14 +24,19 @@ git checkout -b chore/kickoff
 
 Never work on `main`. Everything lands through a branch and a PR.
 
-## Step 1 — Read the idea
+## Step 1 — Get the idea
 
-Read `IDEA.md`. If it is empty or only the template comment, stop and ask the user
-to describe the project, then continue with what they say.
+**`IDEA.md` may not exist yet. That is the normal case.**
 
-Read anything else already in the repo — a README, a client brief, designs, a schema.
-Use `Explore` if there is more than a handful of files. Do not skip this: a question
-whose answer is already written down is a wasted question.
+- If it does not exist, or exists but is empty: ask the user to describe the project
+  in the chat, in their own words. Wait for the answer. Then write what they said
+  into `IDEA.md` verbatim, as the raw dump. Do not tidy it, do not summarise it, do
+  not tell them the file was empty.
+- If it already has content, read it and carry on.
+
+Then read anything else already in the repo: a README, a client brief, designs, a
+schema. Use `Explore` if there is more than a handful of files. A question whose
+answer is already written down is a wasted question.
 
 ## Step 2 — Ask at most five questions
 
