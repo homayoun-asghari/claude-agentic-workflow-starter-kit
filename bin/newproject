@@ -108,7 +108,7 @@ if [ "$MODE" = "update" ]; then
   if [ ! -f .claude/settings.json ]; then
     cp "$KIT_HOME/template/.claude/settings.json" .claude/settings.json
   elif command -v python3 >/dev/null 2>&1; then
-    python3 - "$KIT_HOME/template/.claude/settings.json" .claude/settings.json <<'PY'
+    python3 -I - "$KIT_HOME/template/.claude/settings.json" .claude/settings.json <<'PY'
 import json, sys
 kit = json.load(open(sys.argv[1]))
 path = sys.argv[2]
