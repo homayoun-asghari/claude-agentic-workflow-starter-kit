@@ -20,7 +20,7 @@ cp "$SRC/VERSION" "$KIT_HOME/VERSION" 2>/dev/null || echo "unknown" > "$KIT_HOME
 # Recorded so `newproject --self-update` knows where to git pull from.
 printf '%s\n' "$SRC" > "$KIT_HOME/.source"
 
-chmod +x "$KIT_HOME/bin/newproject" "$KIT_HOME/template/scripts/"*.sh 2>/dev/null || true
+chmod +x "$KIT_HOME/bin/newproject" "$KIT_HOME/template/scripts/"*.sh "$KIT_HOME/template/.claude/hooks/"*.sh 2>/dev/null || true
 ln -sf "$KIT_HOME/bin/newproject" "$BIN/newproject"
 
 NEW=$(cat "$KIT_HOME/VERSION")

@@ -14,3 +14,8 @@ coverage/
 .turbo
 test-results/
 playwright-report/
+
+# Runtime state of the build loop
+work/.shipping
+work/.ship-loop.log
+work/BLOCKED.md

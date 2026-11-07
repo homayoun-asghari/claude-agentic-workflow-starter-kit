@@ -88,6 +88,9 @@ Create these three. They are the project's memory; everything downstream reads t
 - Data model
 - Boundaries: what talks to what, and what must not
 - What is real versus simulated, stated plainly
+- Performance budgets: three to five numbers that matter for this product (page
+  load, API latency, bundle size, job duration). The milestone perf audit measures
+  against these and nothing else.
 
 **`docs/DECISIONS.md`** — append-only.
 - One line per decision: `YYYY-MM-DD — <decision> — <why>`
@@ -136,6 +139,10 @@ Rules:
 - Slice 1 must be shippable on its own. If nothing is shippable alone, the slicing
   is still horizontal — redo it.
 - 5–15 slices for a typical v1. More than 20 means they are too small.
+- Group the slices into **2–4 milestones**, in order. A milestone is a set of
+  slices that together are worth releasing. After the last slice of each one,
+  `/ship-it` runs a security audit, then a performance audit, then cuts a release.
+  A one-milestone board is fine for a small v1.
 
 Format:
 
@@ -145,11 +152,13 @@ Format:
 Source of truth for remaining work. `/ship-it` works top to bottom.
 Status: `todo` -> `doing` -> `done`
 
-| # | Slug | Slice (what a user can do) | PRD | Status |
-|---|------|----------------------------|-----|--------|
-| 1 | signup | A visitor can sign up and see an empty dashboard | J1 | todo |
-| 2 | create-project | A signed-in user can create a project and see it listed | J2 | todo |
+| # | Slug | Slice (what a user can do) | PRD | Milestone | Status |
+|---|------|----------------------------|-----|-----------|--------|
+| 1 | signup | A visitor can sign up and see an empty dashboard | J1 | M1 | todo |
+| 2 | create-project | A signed-in user can create a project and see it listed | J2 | M1 | todo |
 ```
+
+Keep `Status` as the last column — the hooks and `ship-loop.sh` read it from there.
 
 Then ask whether to mirror the board to GitHub Issues. If yes:
 `gh issue create --title "<slug>: <slice>" --body "<PRD journeys, acceptance criteria>"`
@@ -176,7 +185,8 @@ Report, briefly:
 - The stack, and the one choice most worth objecting to
 - What Step 2 changed about your understanding — **or that it changed nothing**, which
   is evidence about the hypothesis and worth saying out loud
-- The slice list
-- That `/ship-it` is the next command
+- The slice list, grouped by milestone
+- That `/ship-it` is the next command — and `./scripts/ship-loop.sh` for an
+  unattended run that survives usage limits and closed sessions
 
 Do not start building. `/kickoff` ends here.

@@ -13,6 +13,9 @@
 |---|---|
 | Verify everything | `./scripts/verify.sh` |
 | Verify fast (skip build) | `./scripts/verify.sh --fast` |
+| Where are we | `.claude/hooks/state.sh` |
+| Tag after a merge (on `main`) | `./scripts/release.sh` |
+| Unattended build, survives usage limits | `./scripts/ship-loop.sh` |
 
 <!-- /kickoff adds dev/test/build commands here. -->
 
@@ -31,9 +34,10 @@ mechanically, it will eventually be reported as passed without being true.
 A feature is done when all of these hold:
 
 1. `./scripts/verify.sh` exits 0
-2. Every acceptance criterion in `work/<slug>/spec.md` is ticked, each with the
-   command output that proves it
-3. The `spec-auditor` subagent returns PASS
+2. Every acceptance criterion in `work/<slug>/spec.md` (or `plan.md` when there is
+   no spec) is ticked, each with the command output that proves it
+3. The `spec-auditor` subagent returns PASS — at most two rounds; anything fixed
+   after round 2 is listed in the PR body
 4. CI is green on the PR
 5. The PR is merged and the branch deleted
 
@@ -65,6 +69,8 @@ merged safely on its own.
 - Conventional prefixes: `feat:`, `fix:`, `test:`, `docs:`, `chore:`, `refactor:`.
 - Squash on merge. Delete the branch.
 - Never force-push a shared branch.
+- Versions are git tags (SemVer), cut by `./scripts/release.sh` on `main` after each
+  merge: `feat` → minor, `fix`/`perf` → patch. Never tag by hand, never edit a tag.
 
 ## Safety
 
@@ -80,9 +86,14 @@ merged safely on its own.
 | `docs/PRD.md` | What we are building and why. Scope and non-goals. |
 | `docs/ARCHITECTURE.md` | Stack, layout, boundaries, and the reasoning behind them. |
 | `docs/DECISIONS.md` | Append-only. One line per decision, newest last. |
+| `docs/audits/` | Milestone security and performance reports. |
+| `work/BOARD.md` | Slices, milestones, status. The only list of what is left. |
 | `work/<slug>/spec.md` | Problem, acceptance criteria as checkboxes, out of scope. |
-| `work/<slug>/plan.md` | Numbered steps, exact files, how each step is verified. |
+| `work/<slug>/plan.md` | `Now:` line, then numbered steps, exact files, how each is verified. |
+| `work/<slug>/audit.md` | The independent review, stamped with the commit it audited. |
 | `work/<slug>/notes.md` | Anything learned the hard way. Environment traps especially. |
+| `work/.shipping` | Exists while `/ship-it` runs. The Stop hook keeps the loop alive. |
+| `work/BLOCKED.md` | Exists only when waiting on the user. Stops the loop. |
 
 Read `docs/` before planning. Append to `DECISIONS.md` on merge. `work/<slug>/` is
 deleted after merge — git history is the archive.
@@ -91,3 +102,8 @@ deleted after merge — git history is the archive.
 
 Never resume from memory. Run `git branch --show-current`, `git log --oneline -15`,
 and read `work/<slug>/plan.md`. Resume from the last verified state.
+
+This also applies after a usage-limit pause and after context compaction. The
+SessionStart hook prints the current state into context each time. When it disagrees
+with what you remember, the disk is right. A review report whose `AUDITED:` commit
+equals HEAD has already run — reuse it.
