@@ -22,11 +22,13 @@ step "no orphan skill refs" bash -c '
   for a in security-auditor perf-auditor; do
     grep -q "$a" template/.claude/skills/ship-it/SKILL.md || { echo "ship-it never dispatches $a"; exit 1; }
   done
-  grep -q "release.sh" template/.claude/skills/ship-it/SKILL.md || { echo "ship-it never tags a release"; exit 1; }'
+  grep -q "tag-release.sh" template/.claude/skills/ship-it/SKILL.md || { echo "ship-it never tags a release"; exit 1; }'
 
-step "release.sh semver" bash scripts/test-release.sh
+step "tag-release.sh semver" bash scripts/test-release.sh
 
 step "state hook" bash scripts/test-state-hook.sh
+
+step "update keeps project files" bash scripts/test-update.sh
 
 echo
 if [ ${#FAILED[@]} -gt 0 ]; then echo "VERIFY FAILED: ${FAILED[*]}"; exit 1; fi

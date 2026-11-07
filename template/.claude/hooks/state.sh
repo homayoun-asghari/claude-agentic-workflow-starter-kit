@@ -52,8 +52,25 @@ print_state() {
   [ -f work/BLOCKED.md ] && { echo "BLOCKED:  work/BLOCKED.md —"; sed 's/^/          /' work/BLOCKED.md | head -10; }
 }
 
+# Keep this project on the latest kit. The project update is a local copy and fast;
+# the kit's own update (a git pull, at most once a day) runs in the background so a
+# session never waits on the network — its result lands at the next session start.
+kit_sync() {
+  [ -z "${CLAUDE_KIT_NO_AUTO_UPDATE:-}" ] || return 0
+  local home np have mine
+  home=${CLAUDE_KIT_HOME:-$HOME/.claude-kit}; np="$home/bin/newproject"
+  [ -x "$np" ] || return 0
+  ( "$np" --auto-update >/dev/null 2>&1 & )
+  have=$(cat "$home/VERSION" 2>/dev/null); mine=$(cat .claude/KIT_VERSION 2>/dev/null)
+  [ -n "$have" ] && [ "$have" != "$mine" ] || return 0
+  # Never downgrade: only move forward to a newer installed kit.
+  [ -z "$mine" ] || [ "$(printf '%s\n%s\n' "$have" "$mine" | sort -V | tail -1)" = "$have" ] || return 0
+  "$np" --update --quiet >/dev/null 2>&1 && echo "kit: this project updated ${mine:-old} -> $have"
+}
+
 case "${1:-session}" in
   session)
+    kit_sync
     print_state
     ;;
 

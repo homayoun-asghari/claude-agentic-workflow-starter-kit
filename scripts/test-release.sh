@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Contract test for template/scripts/release.sh, in a throwaway repo.
+# Contract test for template/scripts/tag-release.sh, in a throwaway repo.
 set -uo pipefail
-REL="$(cd "$(dirname "$0")/.." && pwd)/template/scripts/release.sh"
+REL="$(cd "$(dirname "$0")/.." && pwd)/template/scripts/tag-release.sh"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cd "$T" && git init -q -b main && git config user.email t@t && git config user.name t
 FAIL=0
 commit() { git commit -q --allow-empty -m "$1"; }
 expect() { # <commit subject> <expected tag or "-">
-  commit "$1"; bash "$REL" >/dev/null 2>&1 || { echo "  release.sh failed on: $1"; FAIL=1; return; }
+  commit "$1"; bash "$REL" >/dev/null 2>&1 || { echo "  tag-release.sh failed on: $1"; FAIL=1; return; }
   got=$(git tag --points-at HEAD | head -1); got=${got:--}
   [ "$got" = "$2" ] || { echo "  '$1': expected $2, got $got"; FAIL=1; }
 }

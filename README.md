@@ -31,14 +31,16 @@ newproject my-app     # git repo, .claude/ harness, verify script, CI — ready
 /ship-it              # builds every slice until the board is empty
 ```
 
-Staying current:
+Staying current is automatic. The kit checks for a new version at most once a day, and every project brings itself up to the installed kit the next time Claude starts in it. Nothing to run. `CLAUDE_KIT_NO_AUTO_UPDATE=1` turns it off; the manual commands still work:
 
 ```bash
 newproject --self-update   # pull the latest kit and reinstall
-newproject --update        # inside a project: refresh its skills, agents, hooks, settings and kit scripts
+newproject --update        # inside a project: refresh the kit's skills, agents, hooks, settings and scripts
 ```
 
-`--update` refreshes only the kit's own machinery. Your `CLAUDE.md`, `docs/`, `work/`, `IDEA.md`, `scripts/verify.sh` and CI workflow are never touched.
+Updates replace only what the kit ships. Your own skills, agents and hooks stay, `settings.json` is merged rather than overwritten, and your `CLAUDE.md`, `docs/`, `work/`, `IDEA.md`, `scripts/verify.sh` and CI workflow are never touched. A project with its own release process in `CLAUDE.md` keeps it.
+
+<sub>Installed before 0.4.0? Run `newproject --self-update` once, then `newproject --update` in each project. After that it is automatic.</sub>
 
 **Two commands.** That is the whole interface.
 
@@ -111,7 +113,7 @@ Everything a starter kit still needs to add fits in sixteen files.
 | `.claude/agents/security-auditor.md` | Milestone audit: dependencies, secrets, cross-feature access, injection |
 | `.claude/agents/perf-auditor.md` | Milestone audit against written budgets. Measures first, never optimises on a hunch |
 | `.claude/hooks/state.sh` | **Enforced.** Re-injects where-we-are after every compaction; stops `/ship-it` quitting early |
-| `scripts/release.sh` | SemVer tag from the merge commit's prefix — `feat` minor, `fix`/`perf` patch |
+| `scripts/tag-release.sh` | SemVer tag from the merge commit's prefix — `feat` minor, `fix`/`perf` patch |
 | `scripts/ship-loop.sh` | Unattended `/ship-it` that waits out usage limits and restarts until the board is done |
 | `.claude/skills/kickoff/` | Idea → questions → PRD, architecture, decisions, board |
 | `.claude/skills/ship-it/` | The autonomous build loop |
