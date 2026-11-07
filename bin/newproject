@@ -61,16 +61,24 @@ if [ "$MODE" = "update" ]; then
   # Only the kit's own machinery is refreshed. Anything /kickoff writes or you
   # edit is left alone: CLAUDE.md, docs/, work/, IDEA.md, scripts/verify.sh,
   # and .github/workflows/verify.yml all keep your project's version.
-  rm -rf .claude/skills .claude/agents
+  rm -rf .claude/skills .claude/agents .claude/hooks
   cp -R "$KIT_HOME/template/.claude/skills" .claude/skills
   cp -R "$KIT_HOME/template/.claude/agents" .claude/agents
+  cp -R "$KIT_HOME/template/.claude/hooks" .claude/hooks
   cp "$KIT_HOME/template/.claude/settings.json" .claude/settings.json
-  cp "$KIT_HOME/template/scripts/check-config.sh" scripts/check-config.sh 2>/dev/null || true
-  chmod +x scripts/*.sh 2>/dev/null || true
+  for s in check-config.sh release.sh ship-loop.sh; do
+    cp "$KIT_HOME/template/scripts/$s" "scripts/$s" 2>/dev/null || true
+  done
+  chmod +x scripts/*.sh .claude/hooks/*.sh 2>/dev/null || true
+  # Loop runtime state must never be committed.
+  for p in work/.shipping work/.ship-loop.log work/BLOCKED.md; do
+    grep -qxF "$p" .gitignore 2>/dev/null || echo "$p" >> .gitignore
+  done
   echo "$TO" > .claude/KIT_VERSION
 
   echo "updated $FROM -> $TO"
-  echo "  refreshed: .claude/skills, .claude/agents, .claude/settings.json, scripts/check-config.sh"
+  echo "  refreshed: .claude/skills, .claude/agents, .claude/hooks, .claude/settings.json,"
+  echo "             scripts/check-config.sh, scripts/release.sh, scripts/ship-loop.sh"
   echo "  untouched: CLAUDE.md, docs/, work/, IDEA.md, scripts/verify.sh, .github/workflows/"
   exit 0
 fi
@@ -91,7 +99,7 @@ mkdir -p "$DEST"
 cd "$DEST"
 
 cp -R "$KIT_HOME/template/." .
-chmod +x scripts/*.sh 2>/dev/null || true
+chmod +x scripts/*.sh .claude/hooks/*.sh 2>/dev/null || true
 kit_version > .claude/KIT_VERSION
 
 if [ -f CLAUDE.md ]; then

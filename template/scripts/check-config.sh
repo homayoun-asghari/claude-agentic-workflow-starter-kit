@@ -35,6 +35,13 @@ if [ -f .claude/settings.json ]; then
   fi
 fi
 
+# Every hook settings.json points at exists and is executable.
+if [ -f .claude/settings.json ]; then
+  for h in $(grep -oE '\.claude/hooks/[A-Za-z0-9_.-]+' .claude/settings.json | sort -u); do
+    [ -x "$h" ] && ok "hook $h" || err "hook $h: missing or not executable"
+  done
+fi
+
 # CI must call verify.sh rather than re-listing its steps.
 if [ -f .github/workflows/verify.yml ]; then
   grep -q 'scripts/verify.sh' .github/workflows/verify.yml \

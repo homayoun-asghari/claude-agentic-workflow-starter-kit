@@ -1,8 +1,8 @@
 # Claude Agentic Workflow Starter Kit
 
-**A minimal Claude Code template — the workflow, CLAUDE.md, hooks, skills and review subagent I actually use. Two commands. One reviewer subagent. Zero dependencies.**
+**A minimal Claude Code template — the workflow, CLAUDE.md, hooks, skills and review subagent I actually use. Two commands. One reviewer per feature, a security and a performance auditor per milestone. Zero dependencies.**
 
-`idea → PRD → vertical slices → branch → plan → build → verify → independent review → PR → merge`, on a loop, until the project is finished.
+`idea → PRD → vertical slices → branch → plan → build → verify → independent review → PR → merge → tag`, on a loop, until the project is finished.
 
 ![demo](docs/demo.gif)
 
@@ -35,14 +35,14 @@ Staying current:
 
 ```bash
 newproject --self-update   # pull the latest kit and reinstall
-newproject --update        # inside a project: refresh its skills, agents and settings
+newproject --update        # inside a project: refresh its skills, agents, hooks, settings and kit scripts
 ```
 
 `--update` refreshes only the kit's own machinery. Your `CLAUDE.md`, `docs/`, `work/`, `IDEA.md`, `scripts/verify.sh` and CI workflow are never touched.
 
 **Two commands.** That is the whole interface.
 
-`/ship-it` runs autonomously: branch → spec → plan → implement → verify → independent review → PR → CI → merge → next slice. It is resumable — kill it, come back tomorrow, run it again, and it picks up from the last verified commit.
+`/ship-it` runs autonomously: branch → spec → plan → implement → verify → independent review → PR → CI → merge → version tag → next slice. After each milestone it runs a security audit, then a performance audit, then cuts a release. It is resumable — kill it, come back tomorrow, run it again, and it picks up from the last verified commit.
 
 ## The loop
 
@@ -64,10 +64,12 @@ Feature
 │ ↓                            │
 │ Independent Review           │
 │ ↓                            │
-│ Commit → PR → Merge          │
+│ Commit → PR → Merge → Tag    │
 └───────────────┬──────────────┘
                 ↓
           Next Feature
+                ↓
+   Milestone done? Security → Performance → Release
                 ↓
         Complete Project
 ```
@@ -97,16 +99,20 @@ Custom commands have merged into skills. And a 200-agent marketplace is not capa
 
 <sub>Claude Code's `/verify` builds and drives your running app. This kit's `scripts/verify.sh` is the static gate — lint, types, tests, build. Complementary, not duplicates.</sub>
 
-Everything a starter kit still needs to add fits in thirteen files.
+Everything a starter kit still needs to add fits in sixteen files.
 
 ## What is actually in it
 
 | File | Job |
 |---|---|
 | `scripts/verify.sh` | **The single definition of done.** Agent, merge gate and CI all run *this file* |
-| `.claude/hooks/guard.sh` | **Enforced.** Blocks commits to `main`, force-pushes, `rm -rf` outside the project, `curl \| sh` |
-| `.claude/settings.json` | **Enforced.** Denies reading `.env` and keys. Denies deploying. Caps subagents at 3 |
-| `.claude/agents/spec-auditor.md` | Fresh-context audit of the diff against the acceptance criteria |
+| `.claude/settings.json` | Never asks for permission. Continues automatically after a usage limit. Wires the hooks. Caps subagents at 3 |
+| `.claude/agents/spec-auditor.md` | Fresh-context audit of the diff against the acceptance criteria. Two rounds, max |
+| `.claude/agents/security-auditor.md` | Milestone audit: dependencies, secrets, cross-feature access, injection |
+| `.claude/agents/perf-auditor.md` | Milestone audit against written budgets. Measures first, never optimises on a hunch |
+| `.claude/hooks/state.sh` | **Enforced.** Re-injects where-we-are after every compaction; stops `/ship-it` quitting early |
+| `scripts/release.sh` | SemVer tag from the merge commit's prefix — `feat` minor, `fix`/`perf` patch |
+| `scripts/ship-loop.sh` | Unattended `/ship-it` that waits out usage limits and restarts until the board is done |
 | `.claude/skills/kickoff/` | Idea → questions → PRD, architecture, decisions, board |
 | `.claude/skills/ship-it/` | The autonomous build loop |
 | `.github/workflows/verify.yml` | **Enforced.** Calls `verify.sh`. Never re-lists its steps |
@@ -117,13 +123,20 @@ Everything a starter kit still needs to add fits in thirteen files.
 Four layers, ordered by how hard they are to violate:
 
 ```
-ENFORCED    permissions · hook · CI    ← cannot be talked past
+ENFORCED    hooks · CI                 ← cannot be talked past
 MECHANICAL  verify.sh — exit 0 or not done
-PROCEDURAL  2 skills · 1 subagent
+PROCEDURAL  2 skills · 3 subagents
 CONTEXTUAL  CLAUDE.md · docs/ · work/
 ```
 
 Anything that must be true goes in the top layer. **Rules written as prose get narrated, not followed.**
+
+## It does not stop until the board is done
+
+- **Usage limits.** `settings.json` turns on `autoContinueAtUsageLimit`: an interactive session waits for the reset and carries on. For a run that must outlive the terminal, `./scripts/ship-loop.sh` runs `/ship-it` headless and restarts it after each reset.
+- **Nothing lives only in the conversation.** Every reviewer writes its report to disk, stamped with the commit it audited, before it returns. A limit that lands mid-review loses at most the review in flight; a finished one is reused, never re-run.
+- **Context compaction.** A SessionStart hook prints branch, board, the plan's `Now:` line and audit state into context on startup, resume and after every compaction. A PreCompact hook tells the summary what to keep.
+- **Quitting early.** While `/ship-it` runs, a Stop hook sends it back to work if the board has slices left — unless it wrote `work/BLOCKED.md`, or three forced continuations changed nothing.
 
 ## Three rules this is built on
 
@@ -148,7 +161,7 @@ I read every popular Claude Code framework, agent collection and spec-driven dev
 | oh-my-claudecode | 19 agents plus a TypeScript build system |
 | BMAD-METHOD | Node + Python + uv toolchain to install |
 | GitHub spec-kit | six commands to run before you write a line |
-| **this** | **13 files · 2 commands** |
+| **this** | **16 files · 2 commands** |
 
 <sub>Counted September 2026. Numbers move; the pattern does not.</sub>
 

@@ -163,7 +163,7 @@ Four layers, ordered by how hard they are to violate. This ordering *is* the des
 ```
 ENFORCED    permissions · PreToolUse hook · branch protection · CI
 MECHANICAL  scripts/verify.sh — exit 0, or it is not done
-PROCEDURAL  2 skills · 1 subagent — loaded on demand
+PROCEDURAL  2 skills · 3 subagents — loaded on demand
 CONTEXTUAL  CLAUDE.md · docs/ · work/<slug>/
 ```
 
