@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Version from the merge commit, not from judgment. Run on main right after a merge.
 #
-#   ./scripts/release.sh                     tag HEAD from its conventional prefix
-#   ./scripts/release.sh --release "<name>"  also publish a GitHub release for the
+#   ./scripts/tag-release.sh                     tag HEAD from its conventional prefix
+#   ./scripts/tag-release.sh --release "<name>"  also publish a GitHub release for the
 #                                            latest tag (end of a milestone)
-#   ./scripts/release.sh --dry-run           print what would happen
+#   ./scripts/tag-release.sh --dry-run           print what would happen
 #
 # SemVer: feat -> minor, fix/perf -> patch, `!` or BREAKING CHANGE -> major
 # (minor while still 0.x). docs/chore/test/refactor/ci do not release.
@@ -17,11 +17,11 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1; shift ;;
     --release) RELEASE="${2:?--release needs a name}"; shift 2 ;;
-    *) echo "release.sh: unknown option $1" >&2; exit 2 ;;
+    *) echo "tag-release.sh: unknown option $1" >&2; exit 2 ;;
   esac
 done
 
-[ "$(git branch --show-current)" = main ] || { echo "release.sh: run on main, after the merge" >&2; exit 1; }
+[ "$(git branch --show-current)" = main ] || { echo "tag-release.sh: run on main, after the merge" >&2; exit 1; }
 # Highest SemVer tag reachable from HEAD (git describe picks arbitrarily between tags on one commit).
 latest_tag() { git tag --merged HEAD --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1; }
 has_remote() { git remote get-url origin >/dev/null 2>&1; }
@@ -63,7 +63,7 @@ else
 fi
 
 if [ -n "$RELEASE" ]; then
-  tag=$(latest_tag); [ -n "$tag" ] || { echo "release.sh: no tag to release" >&2; exit 1; }
+  tag=$(latest_tag); [ -n "$tag" ] || { echo "tag-release.sh: no tag to release" >&2; exit 1; }
   if ! has_remote || ! command -v gh >/dev/null 2>&1; then
     echo "no remote or gh: skipped GitHub release for $tag"
   elif gh release view "$tag" >/dev/null 2>&1; then

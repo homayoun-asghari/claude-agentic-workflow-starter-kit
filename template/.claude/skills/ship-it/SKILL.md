@@ -163,13 +163,17 @@ If CI is red, fix it on the branch and push again. Never merge red.
 Tag the version:
 
 ```bash
-./scripts/release.sh
+./scripts/tag-release.sh
 ```
 
 It reads the squash commit's prefix — `feat` is a minor bump, `fix`/`perf` a patch
 (SemVer) — tags it, and pushes the tag. Every merged feature becomes a rollback
 point. It is idempotent, so running it again after an interruption is safe. Never
 tag by hand.
+
+**If this project's `CLAUDE.md` defines its own release process** (for example, a
+release per promotion to production), follow that instead and skip `tag-release.sh`
+here and in the milestone gate. Two versioning schemes on one repo is worse than one.
 
 Then mark the slice `done` in `work/BOARD.md`, append any decision to
 `docs/DECISIONS.md`. If that was the last slice of its milestone, run the
@@ -179,8 +183,10 @@ Then mark the slice `done` in `work/BOARD.md`, append any decision to
 
 ## Milestone gate — after the last slice of each milestone
 
-Slices are grouped by the `Milestone` column on the board. A board without one is a
-single milestone, gated after its last slice. Run the gate before starting the next
+Slices are grouped by the `Milestone` column on the board. A board without one is
+gated after its last slice, or once 8 slices have merged since the commit in the last
+audit report's `AUDITED:` line — whichever comes first. Name that milestone
+`batch-<n>`. Run the gate before starting the next
 milestone. Same rules as step 8: each agent writes its report to disk, a report whose
 `AUDITED:` equals HEAD is reused, at most two rounds, NOTES never block.
 
@@ -189,13 +195,13 @@ milestone. Same rules as step 8: each agent writes its report to disk, a report 
 1. **Security first.** Dispatch `security-auditor` with the milestone, base ref, and
    `round 1`. On `BLOCK`: branch `fix/<milestone>-security`, fix the BLOCKING
    findings, verify, round 2, PR titled `fix(security): <milestone> audit`, merge,
-   `./scripts/release.sh` (a patch).
+   `./scripts/tag-release.sh` (a patch).
 2. **Then performance**, on the code security left behind. Dispatch `perf-auditor` the
    same way. On `BLOCK`: branch `perf/<milestone>`, one fix per commit, re-measure
    after each — a fix that does not move its number gets reverted. PR titled
    `perf(<milestone>): <what got faster>` with before/after numbers, merge,
-   `./scripts/release.sh`.
-3. **Release the milestone:** `./scripts/release.sh --release "<milestone>"`.
+   `./scripts/tag-release.sh`.
+3. **Release the milestone:** `./scripts/tag-release.sh --release "<milestone>"`.
 
 Security goes first because performance work — caching, batching, skipping a check —
 is where security regressions come from, and security fixes change performance.

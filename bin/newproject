@@ -3,6 +3,10 @@
 # newproject --update          refresh this project's kit files from the installed template
 # newproject --self-update     pull the latest kit and reinstall
 #
+# Updates are automatic: the kit checks for a new version at most once a day, and
+# every kit project updates itself when Claude starts in it. CLAUDE_KIT_NO_AUTO_UPDATE=1
+# turns that off.
+#
 # Creates a project that is ready to build: git repo, .claude/ harness, verify
 # script, CI. Then opens Claude Code and asks you for the idea.
 set -eu
@@ -10,7 +14,7 @@ set -eu
 KIT_HOME="${CLAUDE_KIT_HOME:-$HOME/.claude-kit}"
 BASE="${NEWPROJECT_DIR:-$HOME/Projects}"
 NAME=""; HERE=0; OPEN="${NEWPROJECT_NO_OPEN:+0}"; OPEN="${OPEN:-1}"
-MODE="create"
+MODE="create"; QUIET=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -19,9 +23,11 @@ while [ $# -gt 0 ]; do
     --no-open)     OPEN=0; shift ;;
     --update)      MODE="update"; shift ;;
     --self-update) MODE="self-update"; shift ;;
+    --auto-update) MODE="auto-update"; shift ;;   # internal: daily, silent
+    --quiet)       QUIET=1; shift ;;
     --version)     cat "$KIT_HOME/VERSION" 2>/dev/null || echo "unknown"; exit 0 ;;
     -h|--help)
-      sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+      sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "newproject: unknown option $1" >&2; exit 2 ;;
     *)  NAME="$1"; shift ;;
   esac
@@ -30,22 +36,46 @@ done
 kit_version() { cat "$KIT_HOME/VERSION" 2>/dev/null || echo "unknown"; }
 
 # ---------------------------------------------------------------- self-update
-if [ "$MODE" = "self-update" ]; then
+# Pull the kit's git checkout and reinstall when it moved. "auto" runs at most once a
+# day, silently, and never touches a checkout that is dirty or not on main.
+self_update() {
   SRC=$(cat "$KIT_HOME/.source" 2>/dev/null || true)
-  [ -n "$SRC" ] && [ -d "$SRC/.git" ] || {
+  if [ -z "$SRC" ] || [ ! -d "$SRC/.git" ]; then
+    [ "$1" = auto ] && return 0
     echo "newproject: no git checkout recorded at $KIT_HOME/.source" >&2
     echo "  clone the kit again and run its install.sh" >&2
-    exit 1; }
-  OLD=$(kit_version)
-  echo "pulling $SRC"
-  git -C "$SRC" pull --ff-only
+    exit 1
+  fi
+  if [ "$1" = auto ]; then
+    [ -z "${CLAUDE_KIT_NO_AUTO_UPDATE:-}" ] || return 0
+    now=$(date +%s); last=$(cat "$KIT_HOME/.last-check" 2>/dev/null || echo 0)
+    [ $((now - last)) -ge 86400 ] || return 0
+    echo "$now" > "$KIT_HOME/.last-check"
+    [ "$(git -C "$SRC" branch --show-current 2>/dev/null)" = main ] || return 0
+    [ -z "$(git -C "$SRC" status --porcelain 2>/dev/null)" ] || return 0
+    GIT_TERMINAL_PROMPT=0 git -C "$SRC" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=15 \
+      pull -q --ff-only >/dev/null 2>&1 || return 0
+    [ "$(git -C "$SRC" rev-parse HEAD)" = "$(cat "$KIT_HOME/.commit" 2>/dev/null)" ] && return 0
+  else
+    echo "pulling $SRC"
+    git -C "$SRC" pull --ff-only
+  fi
   sh "$SRC/install.sh" >/dev/null
+}
+
+if [ "$MODE" = "auto-update" ]; then
+  self_update auto
+  exit 0
+fi
+
+if [ "$MODE" = "self-update" ]; then
+  OLD=$(kit_version)
+  self_update manual
   NEW=$(kit_version)
   if [ "$OLD" = "$NEW" ]; then
     echo "already on $NEW"
   else
-    echo "kit $OLD -> $NEW"
-    echo "run 'newproject --update' inside each project to pick it up"
+    echo "kit $OLD -> $NEW — projects update themselves the next time Claude starts in them"
   fi
   exit 0
 fi
@@ -55,18 +85,60 @@ if [ "$MODE" = "update" ]; then
   [ -d .claude ] || { echo "newproject --update: run this inside a project created by the kit" >&2; exit 1; }
   [ -d "$KIT_HOME/template" ] || { echo "newproject: template not found at $KIT_HOME/template" >&2; exit 1; }
 
+  [ "$QUIET" = 1 ] || self_update auto
   FROM=$(cat .claude/KIT_VERSION 2>/dev/null || echo "unknown")
   TO=$(kit_version)
 
-  # Only the kit's own machinery is refreshed. Anything /kickoff writes or you
-  # edit is left alone: CLAUDE.md, docs/, work/, IDEA.md, scripts/verify.sh,
-  # and .github/workflows/verify.yml all keep your project's version.
-  rm -rf .claude/skills .claude/agents .claude/hooks
-  cp -R "$KIT_HOME/template/.claude/skills" .claude/skills
-  cp -R "$KIT_HOME/template/.claude/agents" .claude/agents
-  cp -R "$KIT_HOME/template/.claude/hooks" .claude/hooks
-  cp "$KIT_HOME/template/.claude/settings.json" .claude/settings.json
-  for s in check-config.sh release.sh ship-loop.sh; do
+  # Only the kit's own machinery is refreshed, and only the pieces the kit ships.
+  # Your own skills, agents, hooks and settings stay. Anything /kickoff writes or you
+  # edit is left alone: CLAUDE.md, docs/, work/, IDEA.md, scripts/verify.sh, and
+  # .github/workflows/verify.yml all keep your project's version.
+  for d in skills agents hooks; do
+    mkdir -p ".claude/$d"
+    for src in "$KIT_HOME/template/.claude/$d"/*; do
+      [ -e "$src" ] || continue
+      n=$(basename "$src")
+      rm -rf ".claude/$d/$n"
+      cp -R "$src" ".claude/$d/$n"
+    done
+  done
+
+  # settings.json is merged, not replaced: the kit's keys win, yours are kept.
+  # `ask` rules are dropped — the kit never shows a permission prompt.
+  if [ ! -f .claude/settings.json ]; then
+    cp "$KIT_HOME/template/.claude/settings.json" .claude/settings.json
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$KIT_HOME/template/.claude/settings.json" .claude/settings.json <<'PY'
+import json, sys
+kit = json.load(open(sys.argv[1]))
+path = sys.argv[2]
+proj = json.load(open(path))
+KIT_HOOK = ".claude/hooks/state.sh"
+for key, val in kit.items():
+    if key == "permissions":
+        perms = proj.setdefault("permissions", {})
+        perms.update(val)
+        perms.pop("ask", None)
+    elif key == "env":
+        proj.setdefault("env", {}).update(val)
+    elif key == "hooks":
+        hooks = proj.setdefault("hooks", {})
+        for event, groups in val.items():
+            yours = [g for g in hooks.get(event, [])
+                     if not any(KIT_HOOK in h.get("command", "") for h in g.get("hooks", []))]
+            hooks[event] = yours + groups
+    else:
+        proj[key] = val
+with open(path, "w") as f:
+    json.dump(proj, f, indent=2)
+    f.write("\n")
+PY
+  else
+    echo "newproject: python3 not found — .claude/settings.json was not merged" >&2
+  fi
+
+  mkdir -p scripts
+  for s in check-config.sh tag-release.sh ship-loop.sh; do
     cp "$KIT_HOME/template/scripts/$s" "scripts/$s" 2>/dev/null || true
   done
   chmod +x scripts/*.sh .claude/hooks/*.sh 2>/dev/null || true
@@ -76,14 +148,17 @@ if [ "$MODE" = "update" ]; then
   done
   echo "$TO" > .claude/KIT_VERSION
 
+  [ "$QUIET" = 1 ] && exit 0
   echo "updated $FROM -> $TO"
-  echo "  refreshed: .claude/skills, .claude/agents, .claude/hooks, .claude/settings.json,"
-  echo "             scripts/check-config.sh, scripts/release.sh, scripts/ship-loop.sh"
+  echo "  refreshed: the kit's skills, agents and hooks; settings.json (merged);"
+  echo "             scripts/check-config.sh, scripts/tag-release.sh, scripts/ship-loop.sh"
+  echo "  kept:      your own skills, agents, hooks and settings"
   echo "  untouched: CLAUDE.md, docs/, work/, IDEA.md, scripts/verify.sh, .github/workflows/"
   exit 0
 fi
 
 # --------------------------------------------------------------------- create
+self_update auto
 [ -n "$NAME" ] || { echo "usage: newproject <name> [--here] [--dir <path>] [--no-open]" >&2; exit 2; }
 [ -d "$KIT_HOME/template" ] || {
   echo "newproject: template not found at $KIT_HOME/template" >&2

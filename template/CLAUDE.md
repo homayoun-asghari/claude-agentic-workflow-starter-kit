@@ -14,7 +14,7 @@
 | Verify everything | `./scripts/verify.sh` |
 | Verify fast (skip build) | `./scripts/verify.sh --fast` |
 | Where are we | `.claude/hooks/state.sh` |
-| Tag after a merge (on `main`) | `./scripts/release.sh` |
+| Tag after a merge (on `main`) | `./scripts/tag-release.sh` |
 | Unattended build, survives usage limits | `./scripts/ship-loop.sh` |
 
 <!-- /kickoff adds dev/test/build commands here. -->
@@ -69,7 +69,7 @@ merged safely on its own.
 - Conventional prefixes: `feat:`, `fix:`, `test:`, `docs:`, `chore:`, `refactor:`.
 - Squash on merge. Delete the branch.
 - Never force-push a shared branch.
-- Versions are git tags (SemVer), cut by `./scripts/release.sh` on `main` after each
+- Versions are git tags (SemVer), cut by `./scripts/tag-release.sh` on `main` after each
   merge: `feat` → minor, `fix`/`perf` → patch. Never tag by hand, never edit a tag.
 
 ## Safety
