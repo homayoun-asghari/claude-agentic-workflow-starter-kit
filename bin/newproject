@@ -195,4 +195,4 @@ echo
 
 [ "$OPEN" = 1 ] || exit 0
 command -v claude >/dev/null 2>&1 || { echo "claude not on PATH; open it yourself and run /kickoff."; exit 0; }
-exec claude "This is a brand new, empty project. There is no IDEA.md yet and nothing has been described to you. Your first message must ask me to describe the project I want to build: what it is, who it is for, and anything I already know about scope or stack. Ask that and nothing else, then wait. Do not read files, do not explore, do not plan, do not run /kickoff yet. When I answer, write what I said verbatim into IDEA.md, then run /kickoff."
+CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS=1 exec claude "This is a brand new, empty project. There is no IDEA.md yet and nothing has been described to you. Your first message must ask me to describe the project I want to build: what it is, who it is for, and anything I already know about scope or stack. Ask that and nothing else, then wait. Do not read files, do not explore, do not plan, do not run /kickoff yet. When I answer, write what I said verbatim into IDEA.md, then run /kickoff."
