@@ -40,6 +40,16 @@ case ":$PATH:" in
      echo "      export PATH=\"\$HOME/.local/bin:\$PATH\""; echo ;;
 esac
 
+# Claude Code asks before some rm commands even in bypassPermissions mode, and a
+# question stops an autonomous loop. Only this variable turns that off, and only from
+# the shell environment — settings.json cannot set it.
+RC="$HOME/.zshrc"; case "${SHELL:-}" in */bash) RC="$HOME/.bashrc" ;; esac
+if [ -z "${CLAUDE_KIT_NO_SHELL_RC:-}" ] && ! grep -q CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS "$RC" 2>/dev/null; then
+  if printf '\n# Claude Code: never prompt, not even for its built-in "dangerous rm" check (claude-kit).\nexport CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS=1\n' >> "$RC" 2>/dev/null; then
+    echo "  never-prompt  added to $RC (open a new terminal to pick it up)"
+  fi
+fi
+echo
 echo "new project:      newproject my-app"
 echo "update the kit:   newproject --self-update"
 echo "update a project: newproject --update   (run inside the project)"

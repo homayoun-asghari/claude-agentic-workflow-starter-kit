@@ -4,7 +4,7 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
-export CLAUDE_KIT_HOME="$T/kit" BIN_DIR="$T/bin" NEWPROJECT_NO_OPEN=1 CLAUDE_KIT_NO_AUTO_UPDATE=
+export CLAUDE_KIT_HOME="$T/kit" BIN_DIR="$T/bin" NEWPROJECT_NO_OPEN=1 CLAUDE_KIT_NO_AUTO_UPDATE= CLAUDE_KIT_NO_SHELL_RC=1
 FAIL=0
 no() { echo "  $1"; FAIL=1; }
 sh "$ROOT/install.sh" >/dev/null

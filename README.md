@@ -138,6 +138,7 @@ Anything that must be true goes in the top layer. **Rules written as prose get n
 - **Usage limits.** `settings.json` turns on `autoContinueAtUsageLimit`: an interactive session waits for the reset and carries on. For a run that must outlive the terminal, `./scripts/ship-loop.sh` runs `/ship-it` headless and restarts it after each reset.
 - **Nothing lives only in the conversation.** Every reviewer writes its report to disk, stamped with the commit it audited, before it returns. A limit that lands mid-review loses at most the review in flight; a finished one is reused, never re-run.
 - **Context compaction.** A SessionStart hook prints branch, board, the plan's `Now:` line and audit state into context on startup, resume and after every compaction. A PreCompact hook tells the summary what to keep.
+- **No permission prompts, ever.** Everything runs in `bypassPermissions`. Claude Code still asks before some `rm` commands it cannot parse, even in that mode — and a question stops an autonomous loop dead. `install.sh` adds `CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS=1` to your shell rc (the only switch, and settings.json cannot set it); `ship-loop.sh` sets it for its own runs. Opt out with `CLAUDE_KIT_NO_SHELL_RC=1`.
 - **Quitting early.** While `/ship-it` runs, a Stop hook sends it back to work if the board has slices left — unless it wrote `work/BLOCKED.md`, or three forced continuations changed nothing.
 
 ## Three rules this is built on
