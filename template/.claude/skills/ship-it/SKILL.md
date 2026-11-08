@@ -2,7 +2,6 @@
 name: ship-it
 description: Build the whole project. For every feature on the board - branch, plan, implement, test, debug, evals, CI, independent review, commit, PR, merge, version tag - with a security and performance gate after each milestone, and keep going until the board is empty and the project works end to end.
 argument-hint: "[optional: a single slug to build]"
-disable-model-invocation: true
 ---
 
 # Ship it

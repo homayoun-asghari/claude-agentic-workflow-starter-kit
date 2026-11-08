@@ -2,7 +2,6 @@
 name: kickoff
 description: Turn a raw idea in IDEA.md into a PRD, an architecture, a verify script, CI, and a Kanban of vertical slices. Asks at most five questions first. Run this once, at the start of a project.
 argument-hint: "[optional extra context]"
-disable-model-invocation: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, Agent(Explore)
 ---
 

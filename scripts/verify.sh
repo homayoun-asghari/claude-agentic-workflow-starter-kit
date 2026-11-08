@@ -22,7 +22,10 @@ step "no orphan skill refs" bash -c '
   for a in security-auditor perf-auditor; do
     grep -q "$a" template/.claude/skills/ship-it/SKILL.md || { echo "ship-it never dispatches $a"; exit 1; }
   done
-  grep -q "tag-release.sh" template/.claude/skills/ship-it/SKILL.md || { echo "ship-it never tags a release"; exit 1; }'
+  grep -q "tag-release.sh" template/.claude/skills/ship-it/SKILL.md || { echo "ship-it never tags a release"; exit 1; }
+  # newproject tells Claude to run /kickoff, and a resumed session runs /ship-it itself:
+  # both must be invocable by the model, not only by a typed slash command.
+  ! grep -rq "^disable-model-invocation: true" template/.claude/skills || { echo "a kit skill blocks model invocation"; exit 1; }'
 
 step "tag-release.sh semver" bash scripts/test-release.sh
 
