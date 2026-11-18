@@ -147,17 +147,37 @@ gh pr create --title "feat(<slug>): <what a user can now do>" --body "<what chan
 
 **Every feature gets a PR.** No exceptions, no "this one was small".
 
-### 11. Merge
+### 11. Hands-on check — never merge blind
 
-Wait for checks, then:
+verify.sh proves the code compiles and the tests pass. It does not prove the feature
+works. Before merging, **use the change the way a user would**, on the branch's HEAD:
+
+- Anything with a screen: start the app (Claude Code's `/run` or `/verify`, or the dev
+  server plus Playwright), walk the acceptance criteria, and **take a screenshot of each
+  one working**, phone width included when the UI is responsive.
+- APIs, CLIs, jobs, libraries: run the real command or request and save the transcript
+  as a `.txt`.
+
+Save everything in `work/<slug>/evidence/`, then write `work/<slug>/evidence/CHECKED.md`:
+what you ran, what you saw for each criterion, and a line `CHECKED: <git rev-parse HEAD>`.
+Commit it (`test(<slug>): hands-on check`) and push — the evidence travels with the PR and
+stays in git history, so it can be shown on request. List the screenshots in the PR body.
+
+If the check finds a problem, fix it, re-run verify, and check again. Any code change after
+the check invalidates it.
+
+### 12. Merge
+
+Only through the gate:
 
 ```bash
-gh pr checks --watch
-gh pr merge --squash --delete-branch
-git checkout main && git pull --ff-only
+./scripts/merge.sh
 ```
 
-If CI is red, fix it on the branch and push again. Never merge red.
+It refuses unless the hands-on evidence exists for the code being merged, `verify.sh`
+passes, and CI is green; then it squash-merges, deletes the branch and pulls the base.
+`gh pr merge` typed directly is blocked by a hook. If CI is red, fix it on the branch and
+push again. Never merge red, never merge blind.
 
 Tag the version:
 
@@ -193,12 +213,13 @@ milestone. Same rules as step 8: each agent writes its report to disk, a report 
 
 1. **Security first.** Dispatch `security-auditor` with the milestone, base ref, and
    `round 1`. On `BLOCK`: branch `fix/<milestone>-security`, fix the BLOCKING
-   findings, verify, round 2, PR titled `fix(security): <milestone> audit`, merge,
+   findings, verify, round 2, PR titled `fix(security): <milestone> audit`, hands-on check, `./scripts/merge.sh`,
    `./scripts/tag-release.sh` (a patch).
 2. **Then performance**, on the code security left behind. Dispatch `perf-auditor` the
    same way. On `BLOCK`: branch `perf/<milestone>`, one fix per commit, re-measure
    after each — a fix that does not move its number gets reverted. PR titled
-   `perf(<milestone>): <what got faster>` with before/after numbers, merge,
+   `perf(<milestone>): <what got faster>` with before/after numbers, hands-on check,
+   `./scripts/merge.sh`,
    `./scripts/tag-release.sh`.
 3. **Release the milestone:** `./scripts/tag-release.sh --release "<milestone>"`.
 
@@ -267,7 +288,7 @@ Keep looping until:
 - Evals pass, or are documented as absent.
 - `./scripts/verify.sh` exits 0.
 - Independent review findings are resolved.
-- Every feature branch is merged.
+- Every feature branch is merged through `./scripts/merge.sh`, each with its hands-on evidence.
 - Every milestone gate has run and the last milestone is released.
 - The project is buildable, testable, and works end to end.
 

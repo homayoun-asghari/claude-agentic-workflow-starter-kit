@@ -40,6 +40,10 @@ newproject --update        # inside a project: refresh the kit's skills, agents,
 
 Updates replace only what the kit ships. Your own skills, agents and hooks stay, `settings.json` is merged rather than overwritten, and your `CLAUDE.md`, `docs/`, `work/`, `IDEA.md`, `scripts/verify.sh` and CI workflow are never touched. A project with its own release process in `CLAUDE.md` keeps it.
 
+**Existing projects.** `newproject --adopt` puts any repo on the kit without overwriting anything it already has; Claude then fits `verify.sh` and CI to the real stack. To make that automatic, run `newproject --enable-auto-adopt` once: every code repo under `~/Projects` adopts the kit the first time Claude starts in it. `touch .claude/NO_KIT` opts one repo out, `CLAUDE_KIT_NO_AUTO_ADOPT=1` turns it off.
+
+**Never merge blind.** Before merging, Claude runs the change the way a user would and saves screenshots (or a terminal transcript for CLIs and APIs) in `work/<slug>/evidence/`, with `CHECKED.md` naming the commit it tested. `./scripts/merge.sh` is the only way to merge: it refuses without that evidence, a passing `verify.sh` and green CI, and a hook blocks a bare `gh pr merge`.
+
 <sub>Installed before 0.4.0? Run `newproject --self-update` once, then `newproject --update` in each project. After that it is automatic.</sub>
 
 **Two commands.** That is the whole interface.
@@ -101,7 +105,7 @@ Custom commands have merged into skills. And a 200-agent marketplace is not capa
 
 <sub>Claude Code's `/verify` builds and drives your running app. This kit's `scripts/verify.sh` is the static gate — lint, types, tests, build. Complementary, not duplicates.</sub>
 
-Everything a starter kit still needs to add fits in sixteen files.
+Everything a starter kit still needs to add fits in eighteen files.
 
 ## What is actually in it
 
@@ -113,6 +117,8 @@ Everything a starter kit still needs to add fits in sixteen files.
 | `.claude/agents/security-auditor.md` | Milestone audit: dependencies, secrets, cross-feature access, injection |
 | `.claude/agents/perf-auditor.md` | Milestone audit against written budgets. Measures first, never optimises on a hunch |
 | `.claude/hooks/state.sh` | **Enforced.** Re-injects where-we-are after every compaction; stops `/ship-it` quitting early |
+| `scripts/merge.sh` | **The only way to merge.** Refuses without hands-on evidence for the exact commit, a passing verify and green CI |
+| `.claude/hooks/merge-guard.sh` | **Enforced.** Blocks `gh pr merge` typed directly, so the gate cannot be skipped |
 | `scripts/tag-release.sh` | SemVer tag from the merge commit's prefix — `feat` minor, `fix`/`perf` patch |
 | `scripts/ship-loop.sh` | Unattended `/ship-it` that waits out usage limits and restarts until the board is done |
 | `.claude/skills/kickoff/` | Idea → questions → PRD, architecture, decisions, board |
@@ -164,7 +170,7 @@ I read every popular Claude Code framework, agent collection and spec-driven dev
 | oh-my-claudecode | 19 agents plus a TypeScript build system |
 | BMAD-METHOD | Node + Python + uv toolchain to install |
 | GitHub spec-kit | six commands to run before you write a line |
-| **this** | **16 files · 2 commands** |
+| **this** | **18 files · 2 commands** |
 
 <sub>Counted September 2026. Numbers move; the pattern does not.</sub>
 
