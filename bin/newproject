@@ -40,6 +40,18 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Every path the kit writes lives under these. A symlink anywhere in them could send a write
+# outside the repo, so adopt and update refuse instead of following it.
+refuse_symlinks() {
+  for p in .claude scripts .github work docs CLAUDE.md .gitignore; do
+    [ -L "$p" ] && { echo "newproject: $p is a symlink; refusing to write through it" >&2; exit 1; }
+    if [ -d "$p" ]; then
+      l=$(find "$p" -type l -print -quit 2>/dev/null)
+      [ -z "$l" ] || { echo "newproject: $l is a symlink; refusing to write through it" >&2; exit 1; }
+    fi
+  done
+}
+
 kit_version() { cat "$KIT_HOME/VERSION" 2>/dev/null || echo "unknown"; }
 
 # ---------------------------------------------------------------- self-update
@@ -100,11 +112,7 @@ if [ "$MODE" = "adopt" ]; then
     exit 0
   fi
   T="$KIT_HOME/template"
-  # Never write through a symlink: every path the kit writes must stay inside the repo.
-  for p in .claude .claude/skills .claude/agents .claude/hooks .claude/settings.json scripts scripts/verify.sh \
-           .github .github/workflows .github/workflows/verify.yml CLAUDE.md work docs .gitignore; do
-    [ -L "$p" ] && { echo "newproject --adopt: $p is a symlink; refusing to write through it" >&2; exit 1; }
-  done
+  refuse_symlinks
   ADDED=""
   add() {  # add <path>: copy from the template only if the project has none
     [ -e "$1" ] && return 0
@@ -204,6 +212,7 @@ if [ "$MODE" = "update" ]; then
   [ -d .claude ] || { echo "newproject --update: run this inside a project created by the kit" >&2; exit 1; }
   [ -d "$KIT_HOME/template" ] || { echo "newproject: template not found at $KIT_HOME/template" >&2; exit 1; }
 
+  refuse_symlinks
   [ "$QUIET" = 1 ] || self_update auto
   FROM=$(cat .claude/KIT_VERSION 2>/dev/null || echo "unknown")
   TO=$(kit_version)
