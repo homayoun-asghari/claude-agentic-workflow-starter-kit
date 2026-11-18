@@ -12,7 +12,7 @@ except Exception:
     sys.exit(0)
 WRAP = {"sudo", "env", "command", "exec", "time", "nohup", "nice"}
 def blocked(c):
-    if re.search(r"mergePullRequest|enablePullRequestAutoMerge|/pulls/[0-9]+/merge\b", c):
+    if re.search(r"mergePullRequest|enablePullRequestAutoMerge|/pulls/[^/\s]+/merge\b", c):
         return True
     for part in re.split(r"[;&|\n()`]|\$\(", c):
         try:
@@ -37,6 +37,9 @@ def blocked(c):
             # "pr" directly followed by "merge" anywhere after gh: unknown flags with values
             # cannot shift it out of view.
             if any(words[k:k + 2] == ["pr", "merge"] for k in range(len(words))):
+                return True
+            # An alias or extension could rename "pr merge" out of sight.
+            if words[:1] in (["alias"], ["extension"], ["ext"]):
                 return True
             # GraphQL whose body comes from a file or stdin cannot be inspected: refuse it.
             if words[:2] == ["api", "graphql"] and any(x.startswith("--input") or "=@" in x or x.startswith("@") for x in rest):
