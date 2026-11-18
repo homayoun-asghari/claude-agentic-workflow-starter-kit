@@ -88,7 +88,8 @@ for c in "gh pr merge --squash" "cd x && gh pr merge 12 --admin" "gh api -X PUT 
          "gh -R o/r pr merge 3" "gh --repo o/r pr merge" "/usr/bin/gh pr merge 1" "echo ok; gh pr merge" \
          "gh api graphql -f query=mutation{mergePullRequest}" "x=\$(gh pr merge 1)" "GH_TOKEN=1 gh pr merge" "bash -c 'gh pr merge 2'" \
          "echo 5 | xargs gh pr merge" "time -p gh pr merge 5" "gh --unknown val pr merge" \
-         "gh api graphql -F query=@m.graphql" "gh api graphql --input q.json" "echo gh pr merge > notes.txt"; do
+         "gh api graphql -F query=@m.graphql" "gh api graphql --input q.json" "echo gh pr merge > notes.txt" \
+         "gh alias set m 'pr merge'" "gh extension install x/y" "gh api -X PUT repos/o/r/pulls/\$N/merge"; do
   j "$c" | "$G" 2>/dev/null; [ $? -eq 2 ] || no "guard let through: $c"
 done
 for c in "./scripts/merge.sh" "gh pr view" "git merge-base --is-ancestor a b" "gh pr create --title merge" \
