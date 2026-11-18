@@ -14,6 +14,7 @@
 | Verify everything | `./scripts/verify.sh` |
 | Verify fast (skip build) | `./scripts/verify.sh --fast` |
 | Where are we | `.claude/hooks/state.sh` |
+| Merge a PR (the only way) | `./scripts/merge.sh` |
 | Tag after a merge (on `main`) | `./scripts/tag-release.sh` |
 | Unattended build, survives usage limits | `./scripts/ship-loop.sh` |
 
@@ -38,14 +39,18 @@ A feature is done when all of these hold:
    no spec) is ticked, each with the command output that proves it
 3. The `spec-auditor` subagent returns PASS — at most two rounds; anything fixed
    after round 2 is listed in the PR body
-4. CI is green on the PR
-5. The PR is merged and the branch deleted
+4. Someone used it: the change was run the way a user would, and the proof is in
+   `work/<slug>/evidence/` — screenshots for anything with a screen, a saved terminal
+   transcript for CLIs, APIs and libraries — with `CHECKED.md` naming the commit tested
+5. CI is green on the PR
+6. Merged with `./scripts/merge.sh`, which refuses without 1, 4 and 5. `gh pr merge`
+   is blocked by a hook. **Never merge blind.**
 
 ## Scale the ceremony to the change
 
 | Change | Path |
 |---|---|
-| < ~50 lines, one file, obvious | branch → implement → verify → commit. Skip spec and plan. |
+| < ~50 lines, one file, obvious | branch → implement → verify → hands-on check → PR → `./scripts/merge.sh`. Skip spec and plan. |
 | Multi-file, one sitting | plan in `work/<slug>/plan.md`, then implement. Skip spec. |
 | New surface, ambiguous, or > one sitting | full loop: spec → plan → implement |
 
@@ -91,6 +96,7 @@ merged safely on its own.
 | `work/<slug>/spec.md` | Problem, acceptance criteria as checkboxes, out of scope. |
 | `work/<slug>/plan.md` | `Now:` line, then numbered steps, exact files, how each is verified. |
 | `work/<slug>/audit.md` | The independent review, stamped with the commit it audited. |
+| `work/<slug>/evidence/` | Screenshots / transcripts of the hands-on check, plus `CHECKED.md`. |
 | `work/<slug>/notes.md` | Anything learned the hard way. Environment traps especially. |
 | `work/.shipping` | Exists while `/ship-it` runs. The Stop hook keeps the loop alive. |
 | `work/BLOCKED.md` | Exists only when waiting on the user. Stops the loop. |

@@ -45,7 +45,9 @@ if "ask" in p: bad.append("ask kept (would prompt)")
 if p.get("defaultMode") != "bypassPermissions": bad.append("not bypassPermissions")
 if d["env"].get("MY_VAR") != "1" or "CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS" not in d["env"]: bad.append("env merge")
 if d.get("autoContinueAtUsageLimit") is not True: bad.append("autoContinue missing")
-if len(d["hooks"]["PreToolUse"]) != 1: bad.append("own PreToolUse hook lost")
+pre = [h["command"] for g in d["hooks"]["PreToolUse"] for h in g["hooks"]]
+if not any("guard.mjs" in c for c in pre): bad.append("own PreToolUse hook lost")
+if sum("merge-guard.sh" in c for c in pre) != 1: bad.append("merge-guard not wired exactly once")
 for ev in ("SessionStart", "PreCompact", "Stop"):
     if len(d["hooks"].get(ev, [])) != 1: bad.append(f"{ev}: {len(d['hooks'].get(ev, []))} kit hooks (want 1)")
 for b in bad: print("  settings:", b)

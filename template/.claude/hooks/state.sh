@@ -77,7 +77,7 @@ case "${1:-session}" in
   precompact)
     cat <<'EOF'
 When summarising, keep verbatim: the user's latest instructions and every decision
-they made in this session; the current branch and slug; which /ship-it step (1-11,
+they made in this session; the current branch and slug; which /ship-it step (1-12,
 or the milestone gate) is in progress; the audit round and any open BLOCKING
 findings; anything learned that is not yet written to disk. Drop file contents,
 command output and search traces — they are on disk and can be re-read.

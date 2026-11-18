@@ -2,6 +2,10 @@
 # newproject <name> [--here] [--dir <path>] [--no-open]
 # newproject --update          refresh this project's kit files from the installed template
 # newproject --self-update     pull the latest kit and reinstall
+# newproject --adopt           put an existing repo on the kit (keeps all its own files)
+# newproject --enable-auto-adopt
+#                              every code repo under ~/Projects adopts the kit the first
+#                              time Claude starts in it (adds one global SessionStart hook)
 #
 # Updates are automatic: the kit checks for a new version at most once a day, and
 # every kit project updates itself when Claude starts in it. CLAUDE_KIT_NO_AUTO_UPDATE=1
@@ -24,10 +28,13 @@ while [ $# -gt 0 ]; do
     --update)      MODE="update"; shift ;;
     --self-update) MODE="self-update"; shift ;;
     --auto-update) MODE="auto-update"; shift ;;   # internal: daily, silent
+    --adopt)       MODE="adopt"; shift ;;
+    --adopt-hook)  MODE="adopt-hook"; shift ;;    # internal: global SessionStart hook
+    --enable-auto-adopt) MODE="enable-auto-adopt"; shift ;;
     --quiet)       QUIET=1; shift ;;
     --version)     cat "$KIT_HOME/VERSION" 2>/dev/null || echo "unknown"; exit 0 ;;
     -h|--help)
-      sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+      sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "newproject: unknown option $1" >&2; exit 2 ;;
     *)  NAME="$1"; shift ;;
   esac
@@ -80,6 +87,102 @@ if [ "$MODE" = "self-update" ]; then
   exit 0
 fi
 
+# ------------------------------------------------------------- adopt an existing repo
+# The kit's machinery goes in; nothing the project already has is overwritten. Files
+# the project lacks (verify.sh, CI, CLAUDE.md) come from the template and are then
+# fitted to the real stack by Claude — the adopt-hook tells it so.
+if [ "$MODE" = "adopt" ]; then
+  top=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "newproject --adopt: not inside a git repo" >&2; exit 1; }
+  cd "$top"
+  [ -d "$KIT_HOME/template" ] || { echo "newproject: template not found at $KIT_HOME/template" >&2; exit 1; }
+  if [ -f .claude/KIT_VERSION ]; then
+    [ "$QUIET" = 1 ] || echo "already on the kit ($(cat .claude/KIT_VERSION)) — use --update"
+    exit 0
+  fi
+  T="$KIT_HOME/template"
+  ADDED=""
+  add() {  # add <path>: copy from the template only if the project has none
+    [ -e "$1" ] && return 0
+    mkdir -p "$(dirname "$1")"; cp -R "$T/$1" "$1"; ADDED="$ADDED $1"
+  }
+  add CLAUDE.md
+  add scripts/verify.sh
+  add .github/workflows/verify.yml
+  add work/README.md
+  mkdir -p .claude docs
+  "$0" --update --quiet || { echo "newproject --adopt: kit update step failed" >&2; exit 1; }
+  touch .gitignore
+  for p in node_modules/ .env '.env*.local' '*.pem'; do
+    grep -qxF "$p" .gitignore || echo "$p" >> .gitignore
+  done
+  date -u +%Y-%m-%dT%H:%MZ > .claude/KIT_ADOPTED
+  [ "$QUIET" = 1 ] && exit 0
+  echo "adopted the kit $(kit_version) in $top"
+  echo "  added from the template:${ADDED:- (nothing — the project had them all)}"
+  echo "  next: fit scripts/verify.sh and the CI toolchain to this project's real stack,"
+  echo "        then commit on chore/adopt-workflow-kit and open a PR"
+  exit 0
+fi
+
+# ----------------------------------------------------- global SessionStart: auto-adopt
+# Silent unless it adopts. Only real code repos under $BASE; never the kit itself.
+if [ "$MODE" = "adopt-hook" ]; then
+  [ -z "${CLAUDE_KIT_NO_AUTO_ADOPT:-}" ] || exit 0
+  dir=${CLAUDE_PROJECT_DIR:-$PWD}
+  top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || exit 0
+  base=$(cd "$BASE" 2>/dev/null && pwd -P) || exit 0
+  case "$(cd "$top" && pwd -P)" in "$base"/*) ;; *) exit 0 ;; esac
+  [ -f "$top/.claude/KIT_VERSION" ] || [ -f "$top/.claude/NO_KIT" ] && exit 0
+  [ -f "$top/template/.claude/settings.json" ] && [ -f "$top/bin/newproject" ] && exit 0
+  code=$(find "$top" -maxdepth 4 \( -name node_modules -o -name .git -o -name .venv -o -name venv -o -name vendor \) -prune -o \
+    -type f \( -name package.json -o -name pyproject.toml -o -name requirements.txt -o -name Cargo.toml -o -name go.mod \
+    -o -name foundry.toml -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.py' -o -name '*.sol' -o -name '*.go' \
+    -o -name '*.rs' -o -name '*.swift' -o -name '*.kt' \) -print 2>/dev/null | head -1)
+  [ -n "$code" ] || exit 0
+  (cd "$top" && "$0" --adopt --quiet) >/dev/null 2>&1 || exit 0
+  cat <<EOF
+## Workflow kit: this project was just put on the claude-agentic-workflow-starter-kit ($(kit_version))
+
+Its machinery (.claude/ skills, agents, hooks, settings; scripts/merge.sh, tag-release.sh,
+check-config.sh, ship-loop.sh) is now in the working tree, uncommitted. Nothing the project
+already had was overwritten. To opt a repo out, create .claude/NO_KIT instead.
+
+Keep the adoption in its own branch and PR, separate from the user's request:
+1. Branch chore/adopt-workflow-kit from the default branch.
+2. Rewrite scripts/verify.sh for this project's REAL stack: the format, lint, typecheck, test
+   and build commands that actually exist here. Make it pass. Fit the toolchain setup in
+   .github/workflows/verify.yml (only if it was added now). If CLAUDE.md was added now, fill
+   in "What this is" and the real dev/test/build commands from the code.
+3. Commit, PR, hands-on check, ./scripts/merge.sh.
+
+From now on every change in this repo follows the kit: branch, verify.sh, independent review,
+PR, hands-on check with screenshots or a transcript in work/<slug>/evidence/, then
+./scripts/merge.sh. Never merge blind; gh pr merge is blocked.
+EOF
+  exit 0
+fi
+
+# ------------------------------------------------- opt in: wire the global auto-adopt
+if [ "$MODE" = "enable-auto-adopt" ]; then
+  S="$HOME/.claude/settings.json"; mkdir -p "$HOME/.claude"; [ -f "$S" ] || echo '{}' > "$S"
+  cp "$S" "$S.bak-kit" 2>/dev/null || true
+  python3 -I - "$S" "$KIT_HOME/bin/newproject" <<'PY'
+import json, sys
+path, np = sys.argv[1], sys.argv[2]
+d = json.load(open(path))
+cmd = f'"{np}" --adopt-hook'
+groups = d.setdefault("hooks", {}).setdefault("SessionStart", [])
+if not any("--adopt-hook" in h.get("command", "") for g in groups for h in g.get("hooks", [])):
+    groups.append({"hooks": [{"type": "command", "command": cmd}]})
+with open(path, "w") as f:
+    json.dump(d, f, indent=2); f.write("\n")
+PY
+  echo "auto-adopt on: code repos under $BASE adopt the kit the first time Claude starts in them"
+  echo "  hook added to $S (backup: $S.bak-kit)"
+  echo "  opt one repo out: touch .claude/NO_KIT    turn off everywhere: CLAUDE_KIT_NO_AUTO_ADOPT=1"
+  exit 0
+fi
+
 # --------------------------------------------------------------- update a project
 if [ "$MODE" = "update" ]; then
   [ -d .claude ] || { echo "newproject --update: run this inside a project created by the kit" >&2; exit 1; }
@@ -113,7 +216,8 @@ import json, sys
 kit = json.load(open(sys.argv[1]))
 path = sys.argv[2]
 proj = json.load(open(path))
-KIT_HOOK = ".claude/hooks/state.sh"
+import os
+KIT_HOOKS = [".claude/hooks/" + n for n in os.listdir(os.path.join(os.path.dirname(sys.argv[1]), "hooks"))]
 for key, val in kit.items():
     if key == "permissions":
         perms = proj.setdefault("permissions", {})
@@ -125,7 +229,7 @@ for key, val in kit.items():
         hooks = proj.setdefault("hooks", {})
         for event, groups in val.items():
             yours = [g for g in hooks.get(event, [])
-                     if not any(KIT_HOOK in h.get("command", "") for h in g.get("hooks", []))]
+                     if not any(k in h.get("command", "") for k in KIT_HOOKS for h in g.get("hooks", []))]
             hooks[event] = yours + groups
     else:
         proj[key] = val
@@ -138,7 +242,7 @@ PY
   fi
 
   mkdir -p scripts
-  for s in check-config.sh tag-release.sh ship-loop.sh; do
+  for s in check-config.sh tag-release.sh ship-loop.sh merge.sh; do
     cp "$KIT_HOME/template/scripts/$s" "scripts/$s" 2>/dev/null || true
   done
   chmod +x scripts/*.sh .claude/hooks/*.sh 2>/dev/null || true
@@ -151,7 +255,7 @@ PY
   [ "$QUIET" = 1 ] && exit 0
   echo "updated $FROM -> $TO"
   echo "  refreshed: the kit's skills, agents and hooks; settings.json (merged);"
-  echo "             scripts/check-config.sh, scripts/tag-release.sh, scripts/ship-loop.sh"
+  echo "             scripts/check-config.sh, tag-release.sh, ship-loop.sh, merge.sh"
   echo "  kept:      your own skills, agents, hooks and settings"
   echo "  untouched: CLAUDE.md, docs/, work/, IDEA.md, scripts/verify.sh, .github/workflows/"
   exit 0
