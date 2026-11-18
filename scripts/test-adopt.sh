@@ -61,6 +61,14 @@ mk "$NEWPROJECT_DIR/off" "print(1)"
 out=$(CLAUDE_KIT_NO_AUTO_ADOPT=1 CLAUDE_PROJECT_DIR="$NEWPROJECT_DIR/off" "$NP" --adopt-hook); [ -z "$out" ] || no "CLAUDE_KIT_NO_AUTO_ADOPT ignored"
 out=$(CLAUDE_PROJECT_DIR="$NEWPROJECT_DIR" "$NP" --adopt-hook); [ -z "$out" ] || no "hook fired outside any repo"
 
+mk "$NEWPROJECT_DIR/stranger" "print(1)"; git -C "$NEWPROJECT_DIR/stranger" remote add origin https://github.com/someone-else/x.git
+out=$(CLAUDE_PROJECT_DIR="$NEWPROJECT_DIR/stranger" "$NP" --adopt-hook); [ -z "$out" ] || no "hook adopted a repo owned by someone else"
+out=$(CLAUDE_KIT_ADOPT_OWNERS=someone-else CLAUDE_PROJECT_DIR="$NEWPROJECT_DIR/stranger" "$NP" --adopt-hook)
+echo "$out" | grep -q "Workflow kit" || no "CLAUDE_KIT_ADOPT_OWNERS not honoured"
+mk "$NEWPROJECT_DIR/linky" "print(1)"; mkdir -p "$T/outside"; ln -s "$T/outside" "$NEWPROJECT_DIR/linky/scripts"
+(cd "$NEWPROJECT_DIR/linky" && "$NP" --adopt >/dev/null 2>&1) && no "adopt wrote through a symlink"
+[ -z "$(ls -A "$T/outside")" ] || no "files written outside the repo via symlink"
+
 # ---- enable-auto-adopt: one global hook, idempotent, keeps existing settings
 mkdir -p "$HOME/.claude"
 echo '{"model":"x","hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"mine.sh"}]}]}}' > "$HOME/.claude/settings.json"
@@ -71,10 +79,13 @@ grep -q mine.sh "$HOME/.claude/settings.json" && grep -q '"model": "x"' "$HOME/.
 # ---- merge-guard hook
 G="$P/.claude/hooks/merge-guard.sh"
 j() { printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$1"; }
-for c in "gh pr merge --squash" "cd x && gh pr merge 12 --admin" "gh api -X PUT repos/o/r/pulls/3/merge"; do
+for c in "gh pr merge --squash" "cd x && gh pr merge 12 --admin" "gh api -X PUT repos/o/r/pulls/3/merge" \
+         "gh -R o/r pr merge 3" "gh --repo o/r pr merge" "/usr/bin/gh pr merge 1" "echo ok; gh pr merge" \
+         "gh api graphql -f query=mutation{mergePullRequest}" "x=\$(gh pr merge 1)" "GH_TOKEN=1 gh pr merge" "bash -c 'gh pr merge 2'"; do
   j "$c" | "$G" 2>/dev/null; [ $? -eq 2 ] || no "guard let through: $c"
 done
-for c in "./scripts/merge.sh" "gh pr view" "git merge-base --is-ancestor a b" "gh pr create --title merge"; do
+for c in "./scripts/merge.sh" "gh pr view" "git merge-base --is-ancestor a b" "gh pr create --title merge" \
+         "gh pr list --search merge" "echo gh pr merge is blocked > notes.txt"; do
   j "$c" | "$G" 2>/dev/null || no "guard blocked: $c"
 done
 
@@ -88,6 +99,25 @@ out=$(./scripts/merge.sh 2>&1); echo "$out" | grep -q "no evidence beside it" ||
 echo "\$ node src/index.js
 2" > work/thing/evidence/run.txt; git add -A; git commit -qm "test(thing): hands-on check"
 out=$(./scripts/merge.sh 2>&1); echo "$out" | grep -q "no open PR" || no "merge.sh refused good evidence: $out"
+# CI result with a fake gh: red or unknown refuses, green merges.
+FB="$T/fakebin"; mkdir -p "$FB"
+cat > "$FB/gh" <<'GH'
+#!/bin/sh
+case "$1 $2" in
+  "pr view")   echo OPEN ;;
+  "pr checks") exit "${FAKE_CHECKS:-0}" ;;
+  "pr merge")  echo merged >> "$FAKE_LOG" ;;
+  "repo view") echo main ;;
+esac
+GH
+chmod +x "$FB/gh"; export FAKE_LOG="$T/merges"
+for rc in 1 4; do
+  out=$(FAKE_CHECKS=$rc PATH="$FB:$PATH" ./scripts/merge.sh 2>&1)
+  echo "$out" | grep -q "Never merge red" && [ ! -f "$FAKE_LOG" ] || no "merge.sh merged with CI exit $rc"
+done
+out=$(FAKE_CHECKS=0 PATH="$FB:$PATH" ./scripts/merge.sh 2>&1)
+grep -q merged "$FAKE_LOG" 2>/dev/null || no "merge.sh refused green CI + evidence: $out"
+git checkout -q feat/thing 2>/dev/null
 echo 'console.log(3)' > src/index.js; git commit -qam "fix: later change"
 out=$(./scripts/merge.sh 2>&1); echo "$out" | grep -q "code changed after the hands-on check" || no "merge.sh merged code changed after the check"
 

@@ -100,6 +100,11 @@ if [ "$MODE" = "adopt" ]; then
     exit 0
   fi
   T="$KIT_HOME/template"
+  # Never write through a symlink: every path the kit writes must stay inside the repo.
+  for p in .claude .claude/skills .claude/agents .claude/hooks .claude/settings.json scripts scripts/verify.sh \
+           .github .github/workflows .github/workflows/verify.yml CLAUDE.md work docs .gitignore; do
+    [ -L "$p" ] && { echo "newproject --adopt: $p is a symlink; refusing to write through it" >&2; exit 1; }
+  done
   ADDED=""
   add() {  # add <path>: copy from the template only if the project has none
     [ -e "$1" ] && return 0
@@ -139,6 +144,17 @@ if [ "$MODE" = "adopt-hook" ]; then
     -o -name foundry.toml -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.py' -o -name '*.sol' -o -name '*.go' \
     -o -name '*.rs' -o -name '*.swift' -o -name '*.kt' \) -print 2>/dev/null | head -1)
   [ -n "$code" ] || exit 0
+  # Only the user's own repos: no remote, or an origin owned by the kit's own GitHub owner
+  # (or one listed in CLAUDE_KIT_ADOPT_OWNERS, space separated).
+  origin=$(git -C "$top" remote get-url origin 2>/dev/null || true)
+  if [ -n "$origin" ]; then
+    kitsrc=$(cat "$KIT_HOME/.source" 2>/dev/null || true)
+    me=$(git -C "$kitsrc" remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]([^/]+)/.*$#\1#')
+    owner=$(echo "$origin" | sed -E 's#^.*github\.com[:/]([^/]+)/.*$#\1#')
+    ok=0
+    for o in $me ${CLAUDE_KIT_ADOPT_OWNERS:-}; do [ "$owner" = "$o" ] && ok=1; done
+    [ "$ok" = 1 ] || exit 0
+  fi
   (cd "$top" && "$0" --adopt --quiet) >/dev/null 2>&1 || exit 0
   cat <<EOF
 ## Workflow kit: this project was just put on the claude-agentic-workflow-starter-kit ($(kit_version))
