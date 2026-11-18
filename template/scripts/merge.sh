@@ -52,9 +52,14 @@ rm -f /tmp/merge-verify.$$
 
 # 1 + 5. An open PR with green checks.
 gh pr view --json state -q .state 2>/dev/null | grep -qx OPEN || die "no open PR for $branch. Open one first."
-if gh pr checks >/dev/null 2>&1 || [ $? -eq 8 ]; then   # 8 = checks still pending
-  gh pr checks --watch >/dev/null 2>&1 || die "CI is red on the PR. Fix it on the branch; never merge red."
-fi
+# Fail closed: anything but "all passed" (0) or "still pending" (8) refuses.
+gh pr checks >/dev/null 2>&1; rc=$?
+case $rc in
+  0) ;;
+  8) gh pr checks --watch >/dev/null 2>&1 || die "CI is red on the PR. Fix it on the branch; never merge red." ;;
+  *) die "CI is red, missing, or unreadable on the PR (gh pr checks exit $rc). Never merge red." ;;
+esac
+gh pr checks >/dev/null 2>&1 || die "CI is not green on the PR. Never merge red."
 
 gh pr merge --squash --delete-branch || die "gh pr merge failed."
 base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null || echo main)
