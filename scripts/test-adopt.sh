@@ -68,6 +68,11 @@ echo "$out" | grep -q "Workflow kit" || no "CLAUDE_KIT_ADOPT_OWNERS not honoured
 mk "$NEWPROJECT_DIR/linky" "print(1)"; mkdir -p "$T/outside"; ln -s "$T/outside" "$NEWPROJECT_DIR/linky/scripts"
 (cd "$NEWPROJECT_DIR/linky" && "$NP" --adopt >/dev/null 2>&1) && no "adopt wrote through a symlink"
 [ -z "$(ls -A "$T/outside")" ] || no "files written outside the repo via symlink"
+mk "$NEWPROJECT_DIR/deeplink" "print(1)"; mkdir -p "$NEWPROJECT_DIR/deeplink/.claude/hooks"
+ln -s "$T/outside/x.sh" "$NEWPROJECT_DIR/deeplink/.claude/hooks/state.sh"
+(cd "$NEWPROJECT_DIR/deeplink" && "$NP" --adopt >/dev/null 2>&1) && no "adopt wrote through a nested symlink"
+(cd "$NEWPROJECT_DIR/deeplink" && mkdir -p .claude && echo 0.0.1 > .claude/KIT_VERSION && "$NP" --update --quiet >/dev/null 2>&1) && no "update wrote through a nested symlink"
+[ -z "$(ls -A "$T/outside")" ] || no "nested symlink write escaped the repo"
 
 # ---- enable-auto-adopt: one global hook, idempotent, keeps existing settings
 mkdir -p "$HOME/.claude"
@@ -81,11 +86,13 @@ G="$P/.claude/hooks/merge-guard.sh"
 j() { printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$1"; }
 for c in "gh pr merge --squash" "cd x && gh pr merge 12 --admin" "gh api -X PUT repos/o/r/pulls/3/merge" \
          "gh -R o/r pr merge 3" "gh --repo o/r pr merge" "/usr/bin/gh pr merge 1" "echo ok; gh pr merge" \
-         "gh api graphql -f query=mutation{mergePullRequest}" "x=\$(gh pr merge 1)" "GH_TOKEN=1 gh pr merge" "bash -c 'gh pr merge 2'"; do
+         "gh api graphql -f query=mutation{mergePullRequest}" "x=\$(gh pr merge 1)" "GH_TOKEN=1 gh pr merge" "bash -c 'gh pr merge 2'" \
+         "echo 5 | xargs gh pr merge" "time -p gh pr merge 5" "gh --unknown val pr merge" \
+         "gh api graphql -F query=@m.graphql" "gh api graphql --input q.json" "echo gh pr merge > notes.txt"; do
   j "$c" | "$G" 2>/dev/null; [ $? -eq 2 ] || no "guard let through: $c"
 done
 for c in "./scripts/merge.sh" "gh pr view" "git merge-base --is-ancestor a b" "gh pr create --title merge" \
-         "gh pr list --search merge" "echo gh pr merge is blocked > notes.txt"; do
+         "gh pr list --search merge" "gh api graphql -f query={viewer{login}}" "git merge --ff-only origin/main"; do
   j "$c" | "$G" 2>/dev/null || no "guard blocked: $c"
 done
 

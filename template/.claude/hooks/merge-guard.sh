@@ -22,15 +22,24 @@ def blocked(c):
         # A quoted script handed to a shell (bash -c "...") is checked too.
         if any(" " in t and blocked(t) for t in toks):
             return True
-        i = 0
-        while i < len(toks) and ("=" in toks[i] and not toks[i].startswith("-") or toks[i] in WRAP):
-            i += 1
-        if i < len(toks) and toks[i].rsplit("/", 1)[-1] == "gh":
+        # Deny by default: gh anywhere in the segment (not only as its head, so xargs/time -p/
+        # unknown wrappers are covered), then its words with flags skipped.
+        for i, t in enumerate(toks):
+            if t.rsplit("/", 1)[-1] != "gh":
+                continue
             rest = toks[i + 1:]
-            j = 0
-            while j < len(rest) and rest[j].startswith("-"):      # gh global flags
-                j += 2 if rest[j] in ("-R", "--repo", "--hostname") else 1
-            if rest[j:j + 2] == ["pr", "merge"]:
+            words, j = [], 0
+            while j < len(rest):
+                if rest[j].startswith("-"):
+                    j += 2 if rest[j] in ("-R", "--repo", "--hostname") else 1
+                    continue
+                words.append(rest[j]); j += 1
+            # "pr" directly followed by "merge" anywhere after gh: unknown flags with values
+            # cannot shift it out of view.
+            if any(words[k:k + 2] == ["pr", "merge"] for k in range(len(words))):
+                return True
+            # GraphQL whose body comes from a file or stdin cannot be inspected: refuse it.
+            if words[:2] == ["api", "graphql"] and any(x.startswith("--input") or "=@" in x or x.startswith("@") for x in rest):
                 return True
     return False
 if blocked(cmd):
